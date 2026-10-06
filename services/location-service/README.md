@@ -7,28 +7,15 @@ Holds live rider positions and every WebSocket connection on the platform. Rider
 ## Responsibilities
 
 - Accept WebSocket (STOMP) connections; validate the JWT on connect
-- Receive rider positions every 3–5 seconds and store them in Redis (GEOADD)
-- Answer "available riders near this point" for Dispatch (GEOSEARCH)
+- Receive rider positions every 3–5 seconds and store them in Redis (GEOADD); drop riders that have not sent a position for 30 seconds
+- Answer "riders near this point" for Dispatch (GEOSEARCH); Dispatch filters by availability
 - Push the rider's position to the customer of the active order
-- Push order status updates, new orders and job offers to the right users
-- Check that only the assigned rider can send location for an order, and only its customer can subscribe
+- Push order status updates and job offers to the right users, and new orders and status changes to the restaurant's channel
+- Check that only the assigned rider can send location for an order, only its customer can subscribe to it, and only members of a restaurant can subscribe to its channel
 
 ## Data it owns
 
-Redis: rider positions, active tracking sessions (order → rider, customer). Optional `location_db` for sampled trip history.
-
-## Endpoints
-
-| Method | Path | Access | Description |
-|---|---|---|---|
-| `WS` | `/ws` | Authenticated | STOMP connection (token sent on connect) |
-| `SEND` | `/app/location` | RIDER | Send my current position |
-| `SUBSCRIBE` | `/user/queue/updates` | Authenticated | My personal updates: order status, new orders (restaurant), job offers (rider) |
-| `SUBSCRIBE` | `/topic/orders/{orderId}/location` | CUSTOMER (owner) | Live rider position for my order |
-| `GET` | `/api/location/orders/{orderId}/rider` | CUSTOMER (owner) | Last known rider position (for page reloads) |
-| `GET` | `/internal/riders/nearby` | Internal | Nearest riders: `lat`, `lng`, `radiusKm`, `limit` |
-
-Paths starting with `/internal` are for other services only. The gateway does not route them.
+Redis: rider positions and last-seen times, active tracking sessions (order → rider, customer). Optional `location_db` for sampled trip history.
 
 ## Events
 
@@ -40,13 +27,13 @@ Paths starting with `/internal` are for other services only. The gateway does no
 
 - `RiderAssigned` — start a tracking session
 - `OrderPickedUp / OrderDelivered / OrderCancelled` — update or end the session
-- `Order status events` — push status to customer and restaurant
-- `OrderPlaced` — push the new order to the restaurant
+- `Order status events` — push status to the customer, the restaurant's channel and the assigned rider
+- `OrderPlaced` — push the new order to the restaurant's channel
 - `RiderOfferCreated / RiderOfferExpired` — push or withdraw the offer on the rider's app
 
 ## Calls other services
 
-- None
+- Restaurant: `GET /internal/restaurants/{id}/members/{userId}` (check membership when someone subscribes to a restaurant channel)
 
 ## Notes
 

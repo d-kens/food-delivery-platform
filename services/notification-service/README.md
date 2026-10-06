@@ -1,6 +1,6 @@
 # Notification Service
 
-Turns events into messages for users: simulated SMS, email and web push. It contains no business rules; it only formats and sends.
+Turns events into out-of-app messages for users: simulated SMS, email and web push. Live in-app updates are pushed by the Location Service over WebSocket. It contains no business rules; it only formats and sends.
 
 **Gateway prefix:** `/api/notifications`
 
@@ -14,21 +14,6 @@ Turns events into messages for users: simulated SMS, email and web push. It cont
 ## Data it owns
 
 `notification_db`: `templates`, `notification_log`, `preferences`, `push_subscriptions`, `processed_events`.
-
-## Endpoints
-
-| Method | Path | Access | Description |
-|---|---|---|---|
-| `GET` | `/api/notifications/{id}` | Authenticated | My recent notifications |
-| `PATCH` | `/api/notifications/{id}/read` | Authenticated (owner) | Mark a notification as read |
-| `GET` | `/api/notifications/{id}/preferences` | Authenticated | My channel preferences |
-| `PUT` | `/api/notifications/{id}/preferences` | Authenticated | Update my channel preferences |
-| `POST` | `/api/notifications/{id}/push-subscriptions` | Authenticated | Register this browser for web push |
-| `DELETE` | `/api/notifications/{id}/push-subscriptions/{subscriptionId}` | Authenticated (owner) | Remove a push subscription |
-| `GET` | `/api/notifications/admin/templates` | ADMIN | List templates |
-| `PUT` | `/api/notifications/admin/templates/{id}` | ADMIN | Edit a template |
-
-Paths starting with `/internal` are for other services only. The gateway does not route them.
 
 ## Events
 
@@ -47,4 +32,4 @@ Paths starting with `/internal` are for other services only. The gateway does no
 
 ## Calls other services
 
-- Customer: `GET /internal/customers/{id}` (contact details)
+- User: `GET /internal/users/{id}` (contact details for any user)

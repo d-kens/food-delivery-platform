@@ -17,14 +17,6 @@ The single public entry point for the frontend and simulator. It routes requests
 
 No business data. Rate-limit counters in Redis.
 
-## Endpoints
-
-| Method | Path | Access | Description |
-|---|---|---|---|
-| `GET` | `/actuator/health` | Internal | Health check for Kubernetes probes |
-
-Paths starting with `/internal` are for other services only. The gateway does not route them.
-
 ## Events
 
 **Publishes**
@@ -45,14 +37,12 @@ Paths starting with `/internal` are for other services only. The gateway does no
 
 | Path | Routed to |
 |---|---|
-| `/api/auth/**` | auth-service |
-| `/api/customers/**` | customer-service |
+| `/api/auth/**`, `/api/users/**` | user-service |
 | `/api/restaurants/**` | restaurant-service |
 | `/api/cart/**`, `/api/orders/**` | order-service |
 | `/api/payments/**` | payment-service |
 | `/api/dispatch/**` | dispatch-service |
 | `/api/location/**`, `/ws` | location-service |
 | `/api/notifications/**` | notification-service |
-| `/api/search/**` | search-service |
 
 `/internal/**` paths are never routed.
