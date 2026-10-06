@@ -74,11 +74,12 @@ If payment fails the order becomes `PAYMENT_FAILED`. If the restaurant rejects, 
 | Role | Registration | Status after registering |
 |---|---|---|
 | `CUSTOMER` | Self sign-up | `ACTIVE` |
-| `RESTAURANT` | Applies with business details | `PENDING` until an admin approves |
 | `RIDER` | Applies with vehicle details | `PENDING` until an admin approves |
 | `ADMIN` | No public sign-up; first admin is seeded, others created by an admin | `ACTIVE` |
 
 Each account has exactly one role. Only `ACTIVE` accounts can log in.
+
+Restaurants are not a role. Any logged-in user can create a restaurant in the Restaurant Service and becomes its `OWNER`; the restaurant stays `PENDING` until an admin approves it. Owners can add other users as `OWNER` or `STAFF`, and a user can belong to several restaurants. Membership lives in the Restaurant Service, not in the token.
 
 ## Security model
 
@@ -86,7 +87,8 @@ Each account has exactly one role. Only `ACTIVE` accounts can log in.
 - **The gateway does not authenticate or authorize.** It routes, applies IP rate limiting and CORS, and forwards the `Authorization` header unchanged.
 - **Every service authenticates and authorizes.** Each service validates the JWT using Auth's public key, then checks:
   - **Role:** is the caller allowed to use this endpoint?
-  - **Ownership:** is this the caller's own order, restaurant or delivery?
+  - **Ownership:** is this the caller's own order or delivery?
+  - **Restaurant membership:** is the caller a member of this restaurant, with the right restaurant role? Checked with the Restaurant Service.
 - **Service-to-service calls** forward the user's token, or use a service token from Auth for background work.
 
 ## Shared conventions

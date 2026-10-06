@@ -10,7 +10,7 @@ Handles money: charges, refunds, delivery fees, a double-entry ledger, and payou
 - Charge orders using the order ID as an idempotency key
 - Refund cancelled orders
 - Record every money movement in a double-entry ledger
-- Record restaurant and rider earnings when an order is delivered
+- Record restaurant and rider earnings when an order is delivered; restaurant earnings and payouts belong to the restaurant, not to a user
 - Run a nightly Spring Batch job to calculate payouts
 - Wrap the fake provider with Resilience4j (circuit breaker, retry, timeout)
 
@@ -24,8 +24,10 @@ Handles money: charges, refunds, delivery fees, a double-entry ledger, and payou
 |---|---|---|---|
 | `POST` | `/api/payments/quotes` | CUSTOMER | Preview delivery fee for a cart and address |
 | `GET` | `/api/payments/orders/{orderId}` | CUSTOMER (owner), ADMIN | Payment and refund status for an order |
-| `GET` | `/api/payments/me/earnings` | RESTAURANT, RIDER | My earnings, filter by date range |
-| `GET` | `/api/payments/me/payouts` | RESTAURANT, RIDER | My payouts |
+| `GET` | `/api/payments/restaurants/{id}/earnings` | OWNER of the restaurant | Restaurant earnings, filter by date range |
+| `GET` | `/api/payments/restaurants/{id}/payouts` | OWNER of the restaurant | Restaurant payouts |
+| `GET` | `/api/payments/riders/{id}/earnings` | RIDER (self) | Rider earnings, filter by date range |
+| `GET` | `/api/payments/riders/{id}/payouts` | RIDER (self) | Rider payouts |
 | `GET` | `/api/payments/admin/payouts` | ADMIN | All payouts, filter by date and status |
 | `GET` | `/api/payments/admin/ledger` | ADMIN | Ledger entries, filter by account or order |
 | `POST` | `/internal/quotes` | Internal | Fee calculation used by Order at checkout |
@@ -50,3 +52,4 @@ Paths starting with `/internal` are for other services only. The gateway does no
 ## Calls other services
 
 - Fake payment provider (in-process module)
+- Restaurant: `GET /internal/restaurants/{id}/members/{userId}` (check the caller owns the restaurant)

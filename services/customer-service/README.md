@@ -19,12 +19,12 @@ Owns customer profiles and saved delivery addresses.
 
 | Method | Path | Access | Description |
 |---|---|---|---|
-| `GET` | `/api/customers/me` | CUSTOMER | Get my profile |
-| `PUT` | `/api/customers/me` | CUSTOMER | Update my profile |
-| `GET` | `/api/customers/me/addresses` | CUSTOMER | List my addresses |
-| `POST` | `/api/customers/me/addresses` | CUSTOMER | Add an address |
-| `PUT` | `/api/customers/me/addresses/{id}` | CUSTOMER (owner) | Update an address |
-| `DELETE` | `/api/customers/me/addresses/{id}` | CUSTOMER (owner) | Delete an address |
+| `GET` | `/api/customers/{id}` | CUSTOMER | Get my profile |
+| `PUT` | `/api/customers/{id}` | CUSTOMER | Update my profile |
+| `GET` | `/api/customers/{id}/addresses` | CUSTOMER | List my addresses |
+| `POST` | `/api/customers/{id}/addresses` | CUSTOMER | Add an address |
+| `PUT` | `/api/customers/{id}/addresses/{addressId}` | CUSTOMER (owner) | Update an address |
+| `DELETE` | `/api/customers/{id}/addresses/{addressId}` | CUSTOMER (owner) | Delete an address |
 | `GET` | `/api/customers/admin` | ADMIN | List customers |
 | `GET` | `/api/customers/admin/{id}` | ADMIN | View a customer |
 | `GET` | `/internal/customers/{id}` | Internal | Customer details for other services |

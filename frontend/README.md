@@ -1,18 +1,19 @@
 # Frontend (Angular)
 
-One Angular app with four lazy-loaded areas, each protected by a role guard:
+One Angular app with four lazy-loaded areas. Customer, Rider and Admin are protected by a role guard; Restaurant is protected by a membership guard:
 
 | Area | Route | Users |
 |---|---|---|
 | Customer | `/customer` | Browse, search, cart, checkout, live tracking, order history |
-| Restaurant | `/restaurant` | Incoming orders dashboard, menu and hours management, earnings |
+| Restaurant | `/restaurant/{id}` | Members of that restaurant: incoming orders dashboard, menu and hours management, earnings, members (owners only) |
 | Rider | `/rider` | Go online, job offers, active delivery, earnings (installable PWA) |
-| Admin | `/admin` | Approve accounts, manage orders, payouts, templates |
+| Admin | `/admin` | Approve riders and restaurants, manage orders, payouts, templates |
 
 ## Key points
 
-- **One login page** (`/login`) for everyone. After login the app reads the role from the token and redirects to the right area.
-- **Separate registration pages:** `/register`, `/register/restaurant`, `/register/rider`.
+- **One login page** (`/login`) for everyone. After login the app reads the role from the token and redirects to the right area. It also asks the Restaurant Service which restaurants the user belongs to and, if any, offers a switch to each one.
+- **Separate registration pages:** `/register`, `/register/rider`.
+- **Creating a restaurant:** a logged-in user opens `/restaurant/new`, submits the details and becomes its owner. The restaurant shows as pending until an admin approves it.
 - **Talks only to the gateway:** REST at `/api/**`, WebSocket at `/ws`.
 - **Tokens:** access token kept in memory; refresh token in an HttpOnly cookie. An HTTP interceptor adds the Bearer header and refreshes once on a 401.
 - **Real-time:** one STOMP connection per user (`@stomp/rx-stomp`).

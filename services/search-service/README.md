@@ -1,6 +1,6 @@
 # Search Service
 
-Full-text search over restaurants and dishes with typo tolerance and filters. Its index is a read-only copy of Restaurant Service data and can be rebuilt at any time.
+Full-text search over restaurants and dishes with typo tolerance and filters. Its index is a read-only copy of Restaurant Service data and can be rebuilt at any time. Only `ACTIVE` restaurants are indexed.
 
 **Gateway prefix:** `/api/search`
 
@@ -33,6 +33,7 @@ Paths starting with `/internal` are for other services only. The gateway does no
 
 **Listens to**
 
+- `RestaurantStatusChanged` — add the restaurant when it becomes `ACTIVE`, remove it when suspended
 - `RestaurantUpdated` — update the restaurant document
 - `MenuUpdated` — update menu item documents
 

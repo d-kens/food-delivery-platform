@@ -28,15 +28,15 @@ Owns carts and orders, enforces the order state machine, and orchestrates the or
 | `DELETE` | `/api/cart/items/{itemId}` | CUSTOMER | Remove an item |
 | `DELETE` | `/api/cart` | CUSTOMER | Empty the cart |
 | `POST` | `/api/orders` | CUSTOMER | Check out the cart (requires `Idempotency-Key` header) |
-| `GET` | `/api/orders/me` | CUSTOMER | My order history |
-| `GET` | `/api/orders/{id}` | Owner customer, restaurant or assigned rider; ADMIN | Order details and status history |
+| `GET` | `/api/orders?customerId={id}` | CUSTOMER (owner) | Order history for a customer |
+| `GET` | `/api/orders/{id}` | Owning customer, members of the order's restaurant, assigned rider; ADMIN | Order details and status history |
 | `POST` | `/api/orders/{id}/cancel` | CUSTOMER (owner) | Cancel while still `PLACED` |
 | `POST` | `/api/orders/{id}/rating` | CUSTOMER (owner) | Rate a delivered order |
-| `GET` | `/api/orders/restaurant` | RESTAURANT | Orders for my restaurant, filter by status |
-| `POST` | `/api/orders/{id}/accept` | RESTAURANT (owner) | Accept an order |
-| `POST` | `/api/orders/{id}/reject` | RESTAURANT (owner) | Reject an order with a reason |
-| `POST` | `/api/orders/{id}/preparing` | RESTAURANT (owner) | Mark as preparing |
-| `POST` | `/api/orders/{id}/ready` | RESTAURANT (owner) | Mark as ready for pickup |
+| `GET` | `/api/orders?restaurantId={id}` | OWNER, STAFF of the restaurant | Orders for a restaurant, filter by status |
+| `POST` | `/api/orders/{id}/accept` | OWNER, STAFF of the order's restaurant | Accept an order |
+| `POST` | `/api/orders/{id}/reject` | OWNER, STAFF of the order's restaurant | Reject an order with a reason |
+| `POST` | `/api/orders/{id}/preparing` | OWNER, STAFF of the order's restaurant | Mark as preparing |
+| `POST` | `/api/orders/{id}/ready` | OWNER, STAFF of the order's restaurant | Mark as ready for pickup |
 | `POST` | `/api/orders/{id}/picked-up` | RIDER (assigned) | Confirm pickup |
 | `POST` | `/api/orders/{id}/delivered` | RIDER (assigned) | Confirm delivery |
 | `GET` | `/api/orders/admin` | ADMIN | Search all orders |
@@ -70,5 +70,6 @@ Paths starting with `/internal` are for other services only. The gateway does no
 ## Calls other services
 
 - Restaurant: `POST /internal/menu/validate`
+- Restaurant: `GET /internal/restaurants/{id}/members/{userId}` (check the caller can act for the order's restaurant)
 - Customer: `GET /internal/addresses/{id}`
 - Payment: `POST /internal/quotes`
