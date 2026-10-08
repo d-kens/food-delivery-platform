@@ -1,0 +1,11 @@
+### Register user
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "jane.doe@example.com",
+  "password": "password123",
+  "firstName": "Jane",
+  "lastName": "Doe",
+  "phoneNumber": "+254700000000"
+}
