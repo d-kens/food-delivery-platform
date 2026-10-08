@@ -1,0 +1,25 @@
+{
+  "name": "User Service",
+  "api_id": "user-service",
+  "org_id": "default",
+  "active": true,
+  "use_keyless": true,
+  "definition": {
+    "location": "header",
+    "key": "x-api-version"
+  },
+  "version_data": {
+    "not_versioned": true,
+    "versions": {
+      "Default": {
+        "name": "Default",
+        "use_extended_paths": true
+      }
+    }
+  },
+  "proxy": {
+    "listen_path": "/api/users/",
+    "target_url": "http://user-service:8080/users/",
+    "strip_listen_path": true
+  }
+}
