@@ -8,6 +8,7 @@ import com.example.user_service.entity.User;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
 import com.example.user_service.repository.UserRepository;
+import com.example.user_service.service.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class AuthenticationService {
+    private final UserMapper userMapper;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -32,27 +34,13 @@ public class AuthenticationService {
             throw new PhoneNumberAlreadyExistsException("User with that phone number already exists");
         }
 
-        User user = User
-                .builder()
-                .email(request.email())
-                .firstName(request.firstName())
-                .lastName(request.lastName())
-                .passwordHash(passwordEncoder.encode(request.password()))
-                .phoneNumber(phoneNumber)
-                .role(Role.USER)
-                .build();
+        User user = userMapper.toUserEntity(request);
+        user.setPhoneNumber(phoneNumber);
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setRole(Role.USER);
 
         userRepository.save(user);
 
-        return new RegistrationResponse(
-                user.getId(),
-                user.getEmail(),
-                user.getPhoneNumber(),
-                user.getFirstName(),
-                user.getLastName(),
-                user.getRole().toString(),
-                user.getStatus().toString(),
-                user.getCreatedAt()
-        );
+        return userMapper.toRegistrationResponse(user);
     }
 }
