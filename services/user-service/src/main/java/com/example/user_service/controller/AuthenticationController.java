@@ -1,5 +1,7 @@
 package com.example.user_service.controller;
 
+import com.example.user_service.dto.LoginRequest;
+import com.example.user_service.dto.LoginResponse;
 import com.example.user_service.dto.RegistrationRequest;
 import com.example.user_service.dto.RegistrationResponse;
 import com.example.user_service.service.AuthenticationService;
@@ -22,5 +24,11 @@ public class AuthenticationController {
             @Valid @RequestBody RegistrationRequest request
     ){
         return authenticationService.register(request);
+    }
+
+    @PostMapping("login")
+    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
+        var loginResult = authenticationService.login(request);
+        return loginResult.response();
     }
 }
