@@ -17,10 +17,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AuthenticationServiceTest {
@@ -33,22 +31,11 @@ class AuthenticationServiceTest {
 
     @Test
     void register_withPhoneNumber_savesUserAndReturnsResponse() {
-        RegistrationRequest request = new RegistrationRequest(
-                "jane.doe@example.com",
-                "T3st@12367",
-                "Jane",
-                "Doe",
-                "0700000000"
-        );
+        var request = createRegistrationRequest();
 
-        User user = User
-                .builder()
-                .email(request.email())
-                .firstName(request.firstName())
-                .lastName(request.lastName())
-                .build();
+        var user = createUser(request);
 
-        RegistrationResponse expectedResponse = new RegistrationResponse(
+        var expectedResponse = new RegistrationResponse(
                 UUID.randomUUID(),
                 request.email(),
                 request.phoneNumber(),
@@ -61,10 +48,11 @@ class AuthenticationServiceTest {
 
         when(userRepository.existsByEmail(request.email())).thenReturn(false);
         when(userRepository.existsByPhoneNumber(request.phoneNumber())).thenReturn(false);
+        when(passwordEncoder.encode(request.password())).thenReturn("encoded-password");
         when(userMapper.toUserEntity(request)).thenReturn(user);
         when(userMapper.toRegistrationResponse(user)).thenReturn(expectedResponse);
 
-        RegistrationResponse response = authenticationService.register(request);
+        var response = authenticationService.register(request);
 
         assertThat(response).isSameAs(expectedResponse);
         verify(userRepository).save(user);
@@ -72,20 +60,9 @@ class AuthenticationServiceTest {
 
     @Test
     void register_setsEncodedPasswordRoleAndPhoneOnSavedUser() {
-        var request = new RegistrationRequest(
-                "jane.doe@gmail.com",
-                "T3st@12367",
-                "Jane",
-                "Doe",
-                "0707127309"
-        );
+        var request = createRegistrationRequest();
 
-        var user = User
-                .builder()
-                .email(request.email())
-                .firstName(request.firstName())
-                .lastName(request.lastName())
-                .build();
+        var user = createUser(request);
 
         var encodedPassword = "$2b$12$L73P6R7iNqGvE16vU7/bK.7SshYg58v8q7mB2O5";
 
@@ -101,17 +78,19 @@ class AuthenticationServiceTest {
         assertEquals(encodedPassword, user.getPasswordHash());
         assertEquals(request.phoneNumber(), user.getPhoneNumber());
         verify(passwordEncoder).encode(request.password());
-        verify(userRepository).save(user);
     }
 
-    @Test
-    void register_encodesRawPassword() {
-
-    }
 
     @Test
     void register_withNullOrBlankPhone_savesNullPhoneAndSkipsPhoneCheck() {
+        var request = createRegistrationRequestWithoutPhoneNumber();
+        var user = createUser(request);
 
+        when(userMapper.toUserEntity(request)).thenReturn(user);
+
+        authenticationService.register(request);
+        assertNull(user.getPhoneNumber());
+        verify(userRepository, never()).existsByPhoneNumber(any());
     }
 
     @Test
@@ -122,5 +101,34 @@ class AuthenticationServiceTest {
     @Test
     void register_whenPhoneExists_throwsPhoneNumberAlreadyExistsException() {
 
+    }
+
+    private RegistrationRequest createRegistrationRequest() {
+        return new RegistrationRequest(
+                "jane.doe@gmail.com",
+                "T3st@12367",
+                "Jane",
+                "Doe",
+                "0707127309"
+        );
+    }
+
+    private RegistrationRequest createRegistrationRequestWithoutPhoneNumber() {
+        return new RegistrationRequest(
+                "jane.doe@gmail.com",
+                "T3st@12367",
+                "Jane",
+                "Doe",
+                null
+        );
+    }
+
+    private User createUser(RegistrationRequest request) {
+        return User
+                .builder()
+                .email(request.email())
+                .firstName(request.firstName())
+                .lastName(request.lastName())
+                .build();
     }
 }
