@@ -2,6 +2,7 @@ package com.example.user_service.service;
 
 import com.example.user_service.dto.RegistrationRequest;
 import com.example.user_service.dto.RegistrationResponse;
+import com.example.user_service.entity.Role;
 import com.example.user_service.entity.User;
 import com.example.user_service.repository.UserRepository;
 import com.example.user_service.service.mapper.UserMapper;
@@ -16,6 +17,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -69,7 +72,36 @@ class AuthenticationServiceTest {
 
     @Test
     void register_setsEncodedPasswordRoleAndPhoneOnSavedUser() {
+        var request = new RegistrationRequest(
+                "jane.doe@gmail.com",
+                "T3st@12367",
+                "Jane",
+                "Doe",
+                "0707127309"
+        );
 
+        var user = User
+                .builder()
+                .email(request.email())
+                .firstName(request.firstName())
+                .lastName(request.lastName())
+                .build();
+
+        var encodedPassword = "$2b$12$L73P6R7iNqGvE16vU7/bK.7SshYg58v8q7mB2O5";
+
+        when(userRepository.existsByEmail(request.email())).thenReturn(false);
+        when(userRepository.existsByPhoneNumber(request.phoneNumber())).thenReturn(false);
+        when(userMapper.toUserEntity(request)).thenReturn(user);
+        when(passwordEncoder.encode(request.password())).thenReturn(encodedPassword);
+
+
+        authenticationService.register(request);
+
+        assertEquals(Role.USER, user.getRole());
+        assertEquals(encodedPassword, user.getPasswordHash());
+        assertEquals(request.phoneNumber(), user.getPhoneNumber());
+        verify(passwordEncoder).encode(request.password());
+        verify(userRepository).save(user);
     }
 
     @Test
