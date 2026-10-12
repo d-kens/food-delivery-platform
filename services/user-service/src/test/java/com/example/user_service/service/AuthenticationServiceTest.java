@@ -105,7 +105,7 @@ class AuthenticationServiceTest {
             authenticationService.register(request);
         });
 
-        assertEquals("User with that email already exists", exception.getMessage());
+        assertEquals("An account with this email already exists", exception.getMessage());
         verify(userRepository, never()).save(any());
     }
 
@@ -120,7 +120,7 @@ class AuthenticationServiceTest {
             authenticationService.register(request);
         });
 
-        assertEquals("User with that phone number already exists", exception.getMessage());
+        assertEquals("An account with this phone number already exists", exception.getMessage());
         verify(userRepository, never()).save(any());
     }
 

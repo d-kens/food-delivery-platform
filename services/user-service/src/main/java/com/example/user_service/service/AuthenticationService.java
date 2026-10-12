@@ -23,7 +23,7 @@ public class AuthenticationService {
     public RegistrationResponse register(final RegistrationRequest request) {
 
         if (userRepository.existsByEmail(request.email())) {
-            throw new EmailAlreadyExistsException("User with that email already exists");
+            throw new EmailAlreadyExistsException("An account with this email already exists");
         }
 
         String phoneNumber = (request.phoneNumber() == null || request.phoneNumber().isBlank())
@@ -31,7 +31,7 @@ public class AuthenticationService {
                 : request.phoneNumber();
 
         if (phoneNumber != null && userRepository.existsByPhoneNumber(phoneNumber)) {
-            throw new PhoneNumberAlreadyExistsException("User with that phone number already exists");
+            throw new PhoneNumberAlreadyExistsException("An account with this phone number already exists");
         }
 
         User user = userMapper.toUserEntity(request);
