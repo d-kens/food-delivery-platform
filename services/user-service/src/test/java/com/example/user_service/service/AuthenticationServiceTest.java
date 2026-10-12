@@ -4,6 +4,8 @@ import com.example.user_service.dto.RegistrationRequest;
 import com.example.user_service.dto.RegistrationResponse;
 import com.example.user_service.entity.Role;
 import com.example.user_service.entity.User;
+import com.example.user_service.exception.EmailAlreadyExistsException;
+import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
 import com.example.user_service.repository.UserRepository;
 import com.example.user_service.service.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
@@ -95,12 +97,31 @@ class AuthenticationServiceTest {
 
     @Test
     void register_whenEmailExists_throwsEmailAlreadyExistsException() {
+        var request = createRegistrationRequest();
 
+        when(userRepository.existsByEmail(request.email())).thenReturn(true);
+
+        var exception = assertThrows(EmailAlreadyExistsException.class, () -> {
+            authenticationService.register(request);
+        });
+
+        assertEquals("User with that email already exists", exception.getMessage());
+        verify(userRepository, never()).save(any());
     }
 
     @Test
     void register_whenPhoneExists_throwsPhoneNumberAlreadyExistsException() {
+        var request = createRegistrationRequest();
 
+        when(userRepository.existsByEmail(request.email())).thenReturn(false);
+        when(userRepository.existsByPhoneNumber(request.phoneNumber())).thenReturn(true);
+
+        var exception = assertThrows(PhoneNumberAlreadyExistsException.class, () -> {
+            authenticationService.register(request);
+        });
+
+        assertEquals("User with that phone number already exists", exception.getMessage());
+        verify(userRepository, never()).save(any());
     }
 
     private RegistrationRequest createRegistrationRequest() {
