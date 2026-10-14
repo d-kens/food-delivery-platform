@@ -1,5 +1,7 @@
 package com.example.user_service.controller;
 
+import com.example.user_service.dto.LoginRequestDto;
+import com.example.user_service.dto.LoginResponseDto;
 import com.example.user_service.dto.RegistrationRequestDto;
 import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.service.AuthenticationService;
@@ -19,10 +21,17 @@ public class AuthenticationController {
 
     private final AuthenticationService authenticationService;
 
+    @PostMapping("login")
+    public LoginResponseDto login(
+            @Valid @RequestBody final LoginRequestDto request
+            ) {
+        return authenticationService.login(request);
+    }
+
     @PostMapping("register")
     @ResponseStatus(HttpStatus.CREATED)
     public RegistrationResponseDto register(
-            @Valid @RequestBody RegistrationRequestDto request
+            @Valid @RequestBody final RegistrationRequestDto request
     ){
         return authenticationService.register(request);
     }

@@ -1,5 +1,7 @@
 package com.example.user_service.service;
 
+import com.example.user_service.dto.LoginRequestDto;
+import com.example.user_service.dto.LoginResponseDto;
 import com.example.user_service.dto.RegistrationRequestDto;
 import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.entity.Role;
@@ -41,5 +43,10 @@ public class AuthenticationService {
         userRepository.save(user);
 
         return userMapper.toRegistrationResponse(user);
+    }
+
+
+    public LoginResponseDto login(final LoginRequestDto request) {
+        return null;
     }
 }
