@@ -1,7 +1,7 @@
 package com.example.user_service.controller;
 
-import com.example.user_service.dto.RegistrationRequest;
-import com.example.user_service.dto.RegistrationResponse;
+import com.example.user_service.dto.RegistrationRequestDto;
+import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
 import com.example.user_service.security.SecurityConfig;
@@ -50,7 +50,7 @@ class AuthenticationControllerTest {
     @Test
     void register_returnsCreatedWithResponseBody() throws Exception {
         var id = UUID.randomUUID();
-        when(authenticationService.register(any(RegistrationRequest.class))).thenReturn(new RegistrationResponse(
+        when(authenticationService.register(any(RegistrationRequestDto.class))).thenReturn(new RegistrationResponseDto(
                 id,
                 "jane.doe@gmail.com",
                 "0707127309",
@@ -97,7 +97,7 @@ class AuthenticationControllerTest {
 
     @Test
     void register_returnsConflict_whenEmailAlreadyExists() throws Exception {
-        when(authenticationService.register(any(RegistrationRequest.class)))
+        when(authenticationService.register(any(RegistrationRequestDto.class)))
                 .thenThrow(new EmailAlreadyExistsException("An account with this email already exists"));
 
         mockMvc.perform(post(REGISTER_URL)
@@ -110,7 +110,7 @@ class AuthenticationControllerTest {
 
     @Test
     void register_returnsConflict_whenPhoneNumberAlreadyExists() throws Exception {
-        when(authenticationService.register(any(RegistrationRequest.class)))
+        when(authenticationService.register(any(RegistrationRequestDto.class)))
                 .thenThrow(new PhoneNumberAlreadyExistsException("An account with this phone number already exists"));
 
         mockMvc.perform(post(REGISTER_URL)
@@ -123,7 +123,7 @@ class AuthenticationControllerTest {
 
     @Test
     void register_returnsInternalServerError_whenUnexpectedErrorOccurs() throws Exception {
-        when(authenticationService.register(any(RegistrationRequest.class)))
+        when(authenticationService.register(any(RegistrationRequestDto.class)))
                 .thenThrow(new IllegalStateException("database is down"));
 
         mockMvc.perform(post(REGISTER_URL)

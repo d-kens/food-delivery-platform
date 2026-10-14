@@ -1,7 +1,7 @@
 package com.example.user_service.service;
 
-import com.example.user_service.dto.RegistrationRequest;
-import com.example.user_service.dto.RegistrationResponse;
+import com.example.user_service.dto.RegistrationRequestDto;
+import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.entity.Role;
 import com.example.user_service.entity.User;
 import com.example.user_service.exception.EmailAlreadyExistsException;
@@ -37,7 +37,7 @@ class AuthenticationServiceTest {
 
         var user = createUser(request);
 
-        var expectedResponse = new RegistrationResponse(
+        var expectedResponse = new RegistrationResponseDto(
                 UUID.randomUUID(),
                 request.email(),
                 request.phoneNumber(),
@@ -124,8 +124,8 @@ class AuthenticationServiceTest {
         verify(userRepository, never()).save(any());
     }
 
-    private RegistrationRequest createRegistrationRequest() {
-        return new RegistrationRequest(
+    private RegistrationRequestDto createRegistrationRequest() {
+        return new RegistrationRequestDto(
                 "jane.doe@gmail.com",
                 "T3st@12367",
                 "Jane",
@@ -134,8 +134,8 @@ class AuthenticationServiceTest {
         );
     }
 
-    private RegistrationRequest createRegistrationRequestWithoutPhoneNumber() {
-        return new RegistrationRequest(
+    private RegistrationRequestDto createRegistrationRequestWithoutPhoneNumber() {
+        return new RegistrationRequestDto(
                 "jane.doe@gmail.com",
                 "T3st@12367",
                 "Jane",
@@ -144,7 +144,7 @@ class AuthenticationServiceTest {
         );
     }
 
-    private User createUser(RegistrationRequest request) {
+    private User createUser(RegistrationRequestDto request) {
         return User
                 .builder()
                 .email(request.email())

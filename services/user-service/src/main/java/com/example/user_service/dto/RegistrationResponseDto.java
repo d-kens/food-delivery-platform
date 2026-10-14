@@ -3,7 +3,7 @@ package com.example.user_service.dto;
 import java.time.Instant;
 import java.util.UUID;
 
-public record RegistrationResponse(
+public record RegistrationResponseDto(
         UUID id,
         String email,
         String phoneNumber,

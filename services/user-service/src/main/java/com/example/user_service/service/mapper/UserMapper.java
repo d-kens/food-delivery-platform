@@ -1,8 +1,8 @@
 package com.example.user_service.service.mapper;
 
 
-import com.example.user_service.dto.RegistrationRequest;
-import com.example.user_service.dto.RegistrationResponse;
+import com.example.user_service.dto.RegistrationRequestDto;
+import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.entity.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -17,7 +17,7 @@ public interface UserMapper {
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    User toUserEntity(RegistrationRequest request);
+    User toUserEntity(RegistrationRequestDto request);
 
-    RegistrationResponse toRegistrationResponse(User user);
+    RegistrationResponseDto toRegistrationResponse(User user);
 }

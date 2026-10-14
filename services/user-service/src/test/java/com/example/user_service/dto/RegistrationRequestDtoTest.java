@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class RegistrationRequestTest {
+class RegistrationRequestDtoTest {
 
     private static ValidatorFactory validatorFactory;
     private static Validator validator;
@@ -34,14 +34,14 @@ class RegistrationRequestTest {
 
     @Test
     void validRequest_hasNoViolations() {
-        var request = new RegistrationRequest("jane.doe@gmail.com", "T3st@12367", "Jane", "Doe", "0707127309");
+        var request = new RegistrationRequestDto("jane.doe@gmail.com", "T3st@12367", "Jane", "Doe", "0707127309");
 
         assertThat(validator.validate(request)).isEmpty();
     }
 
     @Test
     void phoneNumber_isOptional() {
-        var request = new RegistrationRequest("jane.doe@gmail.com", "T3st@12367", "Jane", "Doe", null);
+        var request = new RegistrationRequestDto("jane.doe@gmail.com", "T3st@12367", "Jane", "Doe", null);
 
         assertThat(validator.validate(request)).isEmpty();
     }
@@ -50,7 +50,7 @@ class RegistrationRequestTest {
     @NullAndEmptySource
     @ValueSource(strings = {"not-an-email", "jane.doe@"})
     void email_isRequiredAndMustBeValid(String email) {
-        var request = new RegistrationRequest(email, "T3st@12367", "Jane", "Doe", null);
+        var request = new RegistrationRequestDto(email, "T3st@12367", "Jane", "Doe", null);
 
         assertThat(invalidFields(validator.validate(request))).containsOnly("email");
     }
@@ -59,33 +59,33 @@ class RegistrationRequestTest {
     @NullAndEmptySource
     @ValueSource(strings = {"short"})
     void password_isRequiredAndAtLeastEightCharacters(String password) {
-        var request = new RegistrationRequest("jane.doe@gmail.com", password, "Jane", "Doe", null);
+        var request = new RegistrationRequestDto("jane.doe@gmail.com", password, "Jane", "Doe", null);
 
         assertThat(invalidFields(validator.validate(request))).containsOnly("password");
     }
 
     @Test
     void password_mustNotExceedHundredCharacters() {
-        var request = new RegistrationRequest("jane.doe@gmail.com", "a".repeat(101), "Jane", "Doe", null);
+        var request = new RegistrationRequestDto("jane.doe@gmail.com", "a".repeat(101), "Jane", "Doe", null);
 
         assertThat(invalidFields(validator.validate(request))).containsOnly("password");
     }
 
     @Test
     void names_areRequired() {
-        var request = new RegistrationRequest("jane.doe@gmail.com", "T3st@12367", " ", null, null);
+        var request = new RegistrationRequestDto("jane.doe@gmail.com", "T3st@12367", " ", null, null);
 
         assertThat(invalidFields(validator.validate(request))).containsOnly("firstName", "lastName");
     }
 
     @Test
     void phoneNumber_mustNotExceedTwentyCharacters() {
-        var request = new RegistrationRequest("jane.doe@gmail.com", "T3st@12367", "Jane", "Doe", "1".repeat(21));
+        var request = new RegistrationRequestDto("jane.doe@gmail.com", "T3st@12367", "Jane", "Doe", "1".repeat(21));
 
         assertThat(invalidFields(validator.validate(request))).containsOnly("phoneNumber");
     }
 
-    private Set<String> invalidFields(Set<ConstraintViolation<RegistrationRequest>> violations) {
+    private Set<String> invalidFields(Set<ConstraintViolation<RegistrationRequestDto>> violations) {
         return violations
                 .stream()
                 .map(violation -> violation.getPropertyPath().toString())

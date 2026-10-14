@@ -1,7 +1,7 @@
 package com.example.user_service.service;
 
-import com.example.user_service.dto.RegistrationRequest;
-import com.example.user_service.dto.RegistrationResponse;
+import com.example.user_service.dto.RegistrationRequestDto;
+import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.entity.Role;
 import com.example.user_service.entity.User;
 import com.example.user_service.exception.EmailAlreadyExistsException;
@@ -19,7 +19,7 @@ public class AuthenticationService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public RegistrationResponse register(final RegistrationRequest request) {
+    public RegistrationResponseDto register(final RegistrationRequestDto request) {
 
         if (userRepository.existsByEmail(request.email())) {
             throw new EmailAlreadyExistsException("An account with this email already exists");

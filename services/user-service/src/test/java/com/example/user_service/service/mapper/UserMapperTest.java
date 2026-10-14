@@ -1,6 +1,6 @@
 package com.example.user_service.service.mapper;
 
-import com.example.user_service.dto.RegistrationRequest;
+import com.example.user_service.dto.RegistrationRequestDto;
 import com.example.user_service.entity.Role;
 import com.example.user_service.entity.User;
 import com.example.user_service.entity.UserStatus;
@@ -17,7 +17,7 @@ class UserMapperTest {
 
     @Test
     void toUserEntity_mapsProfileFields() {
-        var request = new RegistrationRequest("jane.doe@gmail.com", "T3st@12367", "Jane", "Doe", "0707127309");
+        var request = new RegistrationRequestDto("jane.doe@gmail.com", "T3st@12367", "Jane", "Doe", "0707127309");
 
         var user = userMapper.toUserEntity(request);
 
@@ -28,7 +28,7 @@ class UserMapperTest {
 
     @Test
     void toUserEntity_leavesFieldsSetByServiceOrDatabaseUnset() {
-        var request = new RegistrationRequest("jane.doe@gmail.com", "T3st@12367", "Jane", "Doe", "0707127309");
+        var request = new RegistrationRequestDto("jane.doe@gmail.com", "T3st@12367", "Jane", "Doe", "0707127309");
 
         var user = userMapper.toUserEntity(request);
 
@@ -42,7 +42,7 @@ class UserMapperTest {
 
     @Test
     void toUserEntity_defaultsStatusToActive() {
-        var request = new RegistrationRequest("jane.doe@gmail.com", "T3st@12367", "Jane", "Doe", null);
+        var request = new RegistrationRequestDto("jane.doe@gmail.com", "T3st@12367", "Jane", "Doe", null);
 
         var user = userMapper.toUserEntity(request);
 

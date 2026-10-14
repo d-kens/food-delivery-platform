@@ -1,7 +1,7 @@
 package com.example.user_service.controller;
 
-import com.example.user_service.dto.RegistrationRequest;
-import com.example.user_service.dto.RegistrationResponse;
+import com.example.user_service.dto.RegistrationRequestDto;
+import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.service.AuthenticationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,8 +21,8 @@ public class AuthenticationController {
 
     @PostMapping("register")
     @ResponseStatus(HttpStatus.CREATED)
-    public RegistrationResponse register(
-            @Valid @RequestBody RegistrationRequest request
+    public RegistrationResponseDto register(
+            @Valid @RequestBody RegistrationRequestDto request
     ){
         return authenticationService.register(request);
     }
