@@ -2,7 +2,7 @@ package com.example.user_service.service;
 
 import com.example.user_service.dto.RegistrationRequestDto;
 import com.example.user_service.dto.RegistrationResponseDto;
-import com.example.user_service.entity.Role;
+import com.example.user_service.common.Role;
 import com.example.user_service.entity.User;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
@@ -24,6 +24,13 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AuthenticationServiceTest {
+
+    /**
+     *  1. Success: the user exists, the password matches and the status is ACTIVE. Assert the returned DTO fields, and that jwtService.generateToken(user) was called.
+     *   2. Email not found: throws InvalidCredentialException.
+     *   3. Wrong password: throws InvalidCredentialException, and jwtService is never called (verify(jwtService, never())...).
+     *   4. Suspended user: throws UserSuspendedException, and jwtService is never called.
+     */
 
     @Mock private UserMapper userMapper;
     @Mock private UserRepository userRepository;

@@ -10,3 +10,11 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+
+security:
+  jwt:
+    issuer: ${JWT_ISSUER:http://localhost:8080}
+    key-id:  ${JWT_KEY_ID:user-service-key-1}
+    expiration: ${JWT_EXPIRATION:15m}
+    private-key: ${JWT_PRIVATE_KEY_LOCATION:file:certs/private.pem}
+    public-key: ${JWT_PUBLIC_KEY_LOCATION:file:certs/public.pem}

@@ -1,9 +1,9 @@
 package com.example.user_service.service.mapper;
 
 import com.example.user_service.dto.RegistrationRequestDto;
-import com.example.user_service.entity.Role;
+import com.example.user_service.common.Role;
 import com.example.user_service.entity.User;
-import com.example.user_service.entity.UserStatus;
+import com.example.user_service.common.UserStatus;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;

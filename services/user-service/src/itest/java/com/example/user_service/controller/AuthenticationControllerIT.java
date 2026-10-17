@@ -1,8 +1,8 @@
 package com.example.user_service.controller;
 
 import com.example.user_service.AbstractIntegrationTest;
-import com.example.user_service.entity.Role;
-import com.example.user_service.entity.UserStatus;
+import com.example.user_service.common.Role;
+import com.example.user_service.common.UserStatus;
 import com.example.user_service.repository.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;

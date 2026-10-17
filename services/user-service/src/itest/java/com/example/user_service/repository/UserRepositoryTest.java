@@ -1,7 +1,7 @@
 package com.example.user_service.repository;
 
 import com.example.user_service.AbstractIntegrationTest;
-import com.example.user_service.entity.Role;
+import com.example.user_service.common.Role;
 import com.example.user_service.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

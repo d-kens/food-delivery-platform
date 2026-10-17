@@ -1,6 +1,8 @@
 package com.example.user_service.entity;
 
 
+import com.example.user_service.common.Role;
+import com.example.user_service.common.UserStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

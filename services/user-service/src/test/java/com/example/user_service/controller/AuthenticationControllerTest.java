@@ -4,7 +4,7 @@ import com.example.user_service.dto.RegistrationRequestDto;
 import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
-import com.example.user_service.security.SecurityConfig;
+import com.example.user_service.config.SecurityConfig;
 import com.example.user_service.service.AuthenticationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
