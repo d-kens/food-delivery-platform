@@ -1,12 +1,17 @@
 package com.example.user_service.service;
 
+import com.example.user_service.dto.LoginRequestDto;
 import com.example.user_service.dto.RegistrationRequestDto;
 import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.common.Role;
+import com.example.user_service.common.UserStatus;
 import com.example.user_service.entity.User;
 import com.example.user_service.exception.EmailAlreadyExistsException;
+import com.example.user_service.exception.InvalidCredentialException;
 import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
+import com.example.user_service.exception.UserSuspendedException;
 import com.example.user_service.repository.UserRepository;
+import com.example.user_service.security.JwtService;
 import com.example.user_service.service.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,16 +31,10 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class AuthenticationServiceTest {
 
-    /**
-     *  1. Success: the user exists, the password matches and the status is ACTIVE. Assert the returned DTO fields, and that jwtService.generateToken(user) was called.
-     *   2. Email not found: throws InvalidCredentialException.
-     *   3. Wrong password: throws InvalidCredentialException, and jwtService is never called (verify(jwtService, never())...).
-     *   4. Suspended user: throws UserSuspendedException, and jwtService is never called.
-     */
-
     @Mock private UserMapper userMapper;
     @Mock private UserRepository userRepository;
     @Mock private PasswordEncoder passwordEncoder;
+    @Mock private JwtService jwtService;
 
     @InjectMocks private AuthenticationService authenticationService;
 
@@ -129,6 +129,91 @@ class AuthenticationServiceTest {
 
         assertEquals("An account with this phone number already exists", exception.getMessage());
         verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void login_withValidCredentialsAndActiveUser_returnsLoginResponse() {
+        var request = createLoginRequest();
+        var user = createActiveUser(request.email());
+
+        when(userRepository.findByEmail(request.email())).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(request.password(), user.getPasswordHash())).thenReturn(true);
+        when(jwtService.generateToken(user)).thenReturn("access-token");
+
+        var response = authenticationService.login(request);
+
+        assertEquals("access-token", response.accessToken());
+        assertEquals(user.getId().toString(), response.userId());
+        assertEquals(user.getFirstName(), response.firstName());
+        assertEquals(user.getLastName(), response.lastName());
+        assertEquals(user.getEmail(), response.email());
+        assertEquals("USER", response.role());
+        verify(jwtService).generateToken(user);
+    }
+
+    @Test
+    void login_whenEmailNotFound_throwsInvalidCredentialException() {
+        var request = createLoginRequest();
+
+        when(userRepository.findByEmail(request.email())).thenReturn(Optional.empty());
+
+        var exception = assertThrows(InvalidCredentialException.class, () -> {
+            authenticationService.login(request);
+        });
+
+        assertEquals("Invalid email or password", exception.getMessage());
+        verify(passwordEncoder, never()).matches(any(), any());
+        verify(jwtService, never()).generateToken(any());
+    }
+
+    @Test
+    void login_whenPasswordDoesNotMatch_throwsInvalidCredentialException() {
+        var request = createLoginRequest();
+        var user = createActiveUser(request.email());
+
+        when(userRepository.findByEmail(request.email())).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(request.password(), user.getPasswordHash())).thenReturn(false);
+
+        var exception = assertThrows(InvalidCredentialException.class, () -> {
+            authenticationService.login(request);
+        });
+
+        assertEquals("Invalid email or password", exception.getMessage());
+        verify(jwtService, never()).generateToken(any());
+    }
+
+    @Test
+    void login_whenUserSuspended_throwsUserSuspendedException() {
+        var request = createLoginRequest();
+        var user = createActiveUser(request.email());
+        user.setStatus(UserStatus.SUSPENDED);
+
+        when(userRepository.findByEmail(request.email())).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(request.password(), user.getPasswordHash())).thenReturn(true);
+
+        var exception = assertThrows(UserSuspendedException.class, () -> {
+            authenticationService.login(request);
+        });
+
+        assertEquals("Your account has been suspended", exception.getMessage());
+        verify(jwtService, never()).generateToken(any());
+    }
+
+    private LoginRequestDto createLoginRequest() {
+        return new LoginRequestDto("jane.doe@gmail.com", "T3st@12367");
+    }
+
+    private User createActiveUser(String email) {
+        return User
+                .builder()
+                .id(UUID.randomUUID())
+                .email(email)
+                .passwordHash("encoded-password")
+                .firstName("Jane")
+                .lastName("Doe")
+                .role(Role.USER)
+                .status(UserStatus.ACTIVE)
+                .build();
     }
 
     private RegistrationRequestDto createRegistrationRequest() {
