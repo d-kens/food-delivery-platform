@@ -45,4 +45,38 @@
         </createTable>
     </changeSet>
 
+    <changeSet id="002-create-refresh-tokens-table" author="d-kens">
+        <createTable tableName="refresh_tokens">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" primaryKeyName="pk_refresh_tokens" nullable="false" />
+            </column>
+
+            <column name="user_id" type="UUID">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="token_hash" type="VARCHAR(64)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uk_refresh_tokens_token_hash" />
+            </column>
+
+            <column name="expires_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="revoked_at" type="TIMESTAMP WITH TIME ZONE" />
+
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="now()">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="refresh_tokens" baseColumnNames="user_id" constraintName="fk_refresh_tokens_user" referencedTableName="users"
+                                 referencedColumnNames="id"
+                                 onDelete="CASCADE" />
+
+        <createIndex tableName="refresh_tokens" indexName="idx_refresh_tokens_user_id">
+            <column name="user_id"/>
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>
