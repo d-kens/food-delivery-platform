@@ -22,9 +22,10 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AuthenticationService {
     private final UserMapper userMapper;
+    private final JwtService jwtService;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
 
     public RegistrationResponseDto register(final RegistrationRequestDto request) {
 
@@ -64,6 +65,11 @@ public class AuthenticationService {
         }
 
         String accessToken = jwtService.generateToken(user);
+        String refreshToken = refreshTokenService.createFor(user);
+
+        System.out.println("----------------------------------------------------------");
+        System.out.println("Refresh Token: " + refreshToken);
+        System.out.println("----------------------------------------------------------");
 
         return new LoginResponseDto(
                 accessToken,
