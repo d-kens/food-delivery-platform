@@ -3,6 +3,7 @@ package com.example.user_service.controller;
 import com.example.user_service.AbstractIntegrationTest;
 import com.example.user_service.common.Role;
 import com.example.user_service.common.UserStatus;
+import com.example.user_service.repository.RefreshTokenRepository;
 import com.example.user_service.repository.UserRepository;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.AfterEach;
@@ -10,13 +11,22 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.HexFormat;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -28,6 +38,7 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
     private static final String LOGIN_URL = "/auth/login";
     private static final String EMAIL = "jane.doe@gmail.com";
     private static final String PASSWORD = "Str0ngPassword!";
+    private static final Duration REFRESH_TOKEN_TTL = Duration.ofDays(7);
 
     @Autowired
     private MockMvc mockMvc;
@@ -41,8 +52,12 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
     @Autowired
     private JwtDecoder jwtDecoder;
 
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
+
     @AfterEach
     void tearDown() {
+        refreshTokenRepository.deleteAll();
         userRepository.deleteAll();
     }
 
@@ -115,6 +130,59 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void login_setsRefreshTokenCookie_whenCredentialsAreValid() throws Exception {
+        registerUser();
+
+        String setCookie = mockMvc.perform(post(LOGIN_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson(EMAIL, PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andReturn()
+                .getResponse()
+                .getHeader(HttpHeaders.SET_COOKIE);
+
+        assertThat(setCookie)
+                .startsWith("refresh_token=")
+                .contains("Path=/api/auth")
+                .contains("Max-Age=604800")
+                .contains("HttpOnly")
+                .contains("Secure")
+                .contains("SameSite=Strict");
+        assertThat(refreshTokenFrom(setCookie)).isNotBlank();
+    }
+
+    @Test
+    void login_storesHashedRefreshToken_whenCredentialsAreValid() throws Exception {
+        registerUser();
+        var user = userRepository.findByEmail(EMAIL).orElseThrow();
+
+        Instant before = Instant.now();
+        String setCookie = mockMvc.perform(post(LOGIN_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson(EMAIL, PASSWORD)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getHeader(HttpHeaders.SET_COOKIE);
+        Instant after = Instant.now();
+
+        String rawToken = refreshTokenFrom(setCookie);
+
+        assertThat(refreshTokenRepository.findAll())
+                .singleElement()
+                .satisfies(token -> {
+                    assertThat(token.getUser().getId()).isEqualTo(user.getId());
+                    assertThat(token.getTokenHash()).isEqualTo(sha256Hex(rawToken));
+                    assertThat(token.getTokenHash()).isNotEqualTo(rawToken);
+                    assertThat(token.getExpiresAt()).isBetween(
+                            before.plus(REFRESH_TOKEN_TTL).truncatedTo(ChronoUnit.MILLIS),
+                            after.plus(REFRESH_TOKEN_TTL).plusMillis(1));
+                    assertThat(token.getRevokedAt()).isNull();
+                });
+    }
+
+    @Test
     void login_returnsUnauthorized_whenPasswordIsWrong() throws Exception {
         registerUser();
 
@@ -123,7 +191,10 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
                         .content(loginJson(EMAIL, "Wr0ngPassword!")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.detail").value("Invalid email or password"))
-                .andExpect(jsonPath("$.accessToken").doesNotExist());
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
+                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
+
+        assertThat(refreshTokenRepository.count()).isZero();
     }
 
     @Test
@@ -132,7 +203,10 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson("unknown@gmail.com", PASSWORD)))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.detail").value("Invalid email or password"));
+                .andExpect(jsonPath("$.detail").value("Invalid email or password"))
+                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
+
+        assertThat(refreshTokenRepository.count()).isZero();
     }
 
     @Test
@@ -147,7 +221,19 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
                         .content(loginJson(EMAIL, PASSWORD)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.title").value("Account Suspended"))
-                .andExpect(jsonPath("$.accessToken").doesNotExist());
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
+                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
+
+        assertThat(refreshTokenRepository.count()).isZero();
+    }
+
+    private String refreshTokenFrom(String setCookie) {
+        return setCookie.substring("refresh_token=".length(), setCookie.indexOf(';'));
+    }
+
+    private String sha256Hex(String value) throws Exception {
+        byte[] hashed = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
+        return HexFormat.of().formatHex(hashed);
     }
 
     private void registerUser() throws Exception {

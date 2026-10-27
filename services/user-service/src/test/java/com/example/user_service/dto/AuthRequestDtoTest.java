@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class LoginRequestDtoTest {
+class AuthRequestDtoTest {
 
     private static ValidatorFactory validatorFactory;
     private static Validator validator;
@@ -34,7 +34,7 @@ class LoginRequestDtoTest {
 
     @Test
     void validRequest_hasNoViolations() {
-        var request = new LoginRequestDto("jane.doe@gmail.com", "T3st@12367");
+        var request = new AuthRequestDto("jane.doe@gmail.com", "T3st@12367");
 
         assertThat(validator.validate(request)).isEmpty();
     }
@@ -43,14 +43,14 @@ class LoginRequestDtoTest {
     @NullAndEmptySource
     @ValueSource(strings = {" "})
     void email_isRequired(String email) {
-        var request = new LoginRequestDto(email, "T3st@12367");
+        var request = new AuthRequestDto(email, "T3st@12367");
 
         assertThat(invalidFields(validator.validate(request))).containsOnly("email");
     }
 
     @Test
     void email_mustBeValid() {
-        var request = new LoginRequestDto("not-an-email", "T3st@12367");
+        var request = new AuthRequestDto("not-an-email", "T3st@12367");
 
         assertThat(invalidFields(validator.validate(request))).containsOnly("email");
     }
@@ -59,12 +59,12 @@ class LoginRequestDtoTest {
     @NullAndEmptySource
     @ValueSource(strings = {" "})
     void password_isRequired(String password) {
-        var request = new LoginRequestDto("jane.doe@gmail.com", password);
+        var request = new AuthRequestDto("jane.doe@gmail.com", password);
 
         assertThat(invalidFields(validator.validate(request))).containsOnly("password");
     }
 
-    private Set<String> invalidFields(Set<ConstraintViolation<LoginRequestDto>> violations) {
+    private Set<String> invalidFields(Set<ConstraintViolation<AuthRequestDto>> violations) {
         return violations
                 .stream()
                 .map(violation -> violation.getPropertyPath().toString())

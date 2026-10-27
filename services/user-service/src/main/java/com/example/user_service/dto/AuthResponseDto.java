@@ -1,6 +1,6 @@
 package com.example.user_service.dto;
 
-public record LoginResponseDto(
+public record AuthResponseDto(
         String accessToken,
         String userId,
         String firstName,

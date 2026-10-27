@@ -21,3 +21,5 @@ security:
 
   refresh-token:
     ttl: ${REFRESH_TOKEN_TTL:7d}
+    cookie-secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}
+    cookie-path: ${REFRESH_TOKEN_COOKIE_PATH:/api/auth}

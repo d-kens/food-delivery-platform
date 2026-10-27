@@ -1,8 +1,8 @@
 package com.example.user_service.service;
 
 import com.example.user_service.common.UserStatus;
-import com.example.user_service.dto.LoginRequestDto;
-import com.example.user_service.dto.LoginResponseDto;
+import com.example.user_service.dto.AuthRequestDto;
+import com.example.user_service.dto.AuthResponseDto;
 import com.example.user_service.dto.RegistrationRequestDto;
 import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.common.Role;
@@ -52,7 +52,7 @@ public class AuthenticationService {
     }
 
 
-    public LoginResponseDto login(final LoginRequestDto request) {
+    public LoginResult login(final AuthRequestDto request) {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new InvalidCredentialException("Invalid email or password"));
 
@@ -67,11 +67,7 @@ public class AuthenticationService {
         String accessToken = jwtService.generateToken(user);
         String refreshToken = refreshTokenService.createFor(user);
 
-        System.out.println("----------------------------------------------------------");
-        System.out.println("Refresh Token: " + refreshToken);
-        System.out.println("----------------------------------------------------------");
-
-        return new LoginResponseDto(
+        var loginResponse = new AuthResponseDto(
                 accessToken,
                 user.getId().toString(),
                 user.getFirstName(),
@@ -79,5 +75,7 @@ public class AuthenticationService {
                 user.getEmail(),
                 user.getRole().toString()
         );
+
+        return new LoginResult(loginResponse, refreshToken);
     }
 }

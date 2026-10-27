@@ -1,2 +1,7 @@
 server:
   port: 9001
+
+security:
+  refresh-token:
+    cookie-secure: false
+    cookie-path: /auth

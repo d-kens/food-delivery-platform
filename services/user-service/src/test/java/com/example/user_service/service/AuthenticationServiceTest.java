@@ -1,6 +1,6 @@
 package com.example.user_service.service;
 
-import com.example.user_service.dto.LoginRequestDto;
+import com.example.user_service.dto.AuthRequestDto;
 import com.example.user_service.dto.RegistrationRequestDto;
 import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.common.Role;
@@ -32,9 +32,10 @@ import static org.mockito.Mockito.*;
 class AuthenticationServiceTest {
 
     @Mock private UserMapper userMapper;
+    @Mock private JwtService jwtService;
     @Mock private UserRepository userRepository;
     @Mock private PasswordEncoder passwordEncoder;
-    @Mock private JwtService jwtService;
+    @Mock private RefreshTokenService refreshTokenService;
 
     @InjectMocks private AuthenticationService authenticationService;
 
@@ -132,22 +133,24 @@ class AuthenticationServiceTest {
     }
 
     @Test
-    void login_withValidCredentialsAndActiveUser_returnsLoginResponse() {
+    void login_withValidCredentialsAndActiveUser_returnsLoginResult() {
         var request = createLoginRequest();
         var user = createActiveUser(request.email());
 
         when(userRepository.findByEmail(request.email())).thenReturn(Optional.of(user));
         when(passwordEncoder.matches(request.password(), user.getPasswordHash())).thenReturn(true);
         when(jwtService.generateToken(user)).thenReturn("access-token");
+        when(refreshTokenService.createFor(user)).thenReturn("refresh-token");
 
-        var response = authenticationService.login(request);
+        var loginResult = authenticationService.login(request);
 
-        assertEquals("access-token", response.accessToken());
-        assertEquals(user.getId().toString(), response.userId());
-        assertEquals(user.getFirstName(), response.firstName());
-        assertEquals(user.getLastName(), response.lastName());
-        assertEquals(user.getEmail(), response.email());
-        assertEquals("USER", response.role());
+        assertEquals("access-token", loginResult.authResponse().accessToken());
+        assertEquals("refresh-token", loginResult.refreshToken());
+        assertEquals(user.getId().toString(), loginResult.authResponse().userId());
+        assertEquals(user.getFirstName(), loginResult.authResponse().firstName());
+        assertEquals(user.getLastName(), loginResult.authResponse().lastName());
+        assertEquals(user.getEmail(), loginResult.authResponse().email());
+        assertEquals("USER", loginResult.authResponse().role());
         verify(jwtService).generateToken(user);
     }
 
@@ -164,6 +167,7 @@ class AuthenticationServiceTest {
         assertEquals("Invalid email or password", exception.getMessage());
         verify(passwordEncoder, never()).matches(any(), any());
         verify(jwtService, never()).generateToken(any());
+        verify(refreshTokenService, never()).createFor(any());
     }
 
     @Test
@@ -180,6 +184,7 @@ class AuthenticationServiceTest {
 
         assertEquals("Invalid email or password", exception.getMessage());
         verify(jwtService, never()).generateToken(any());
+        verify(refreshTokenService, never()).createFor(any());
     }
 
     @Test
@@ -197,10 +202,11 @@ class AuthenticationServiceTest {
 
         assertEquals("Your account has been suspended", exception.getMessage());
         verify(jwtService, never()).generateToken(any());
+        verify(refreshTokenService, never()).createFor(any());
     }
 
-    private LoginRequestDto createLoginRequest() {
-        return new LoginRequestDto("jane.doe@gmail.com", "T3st@12367");
+    private AuthRequestDto createLoginRequest() {
+        return new AuthRequestDto("jane.doe@gmail.com", "T3st@12367");
     }
 
     private User createActiveUser(String email) {

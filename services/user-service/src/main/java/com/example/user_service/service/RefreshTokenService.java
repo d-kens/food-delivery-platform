@@ -19,7 +19,7 @@ public class RefreshTokenService {
     private final RefreshTokenRepository refreshTokenRepository;
 
     @Value("${security.refresh-token.ttl}")
-    private Duration refreshTokeTtl;
+    private Duration refreshTokenTtl;
 
     public String createFor(User user) {
         String rawToken = refreshTokenGenerator.generate();
@@ -27,7 +27,7 @@ public class RefreshTokenService {
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
                 .tokenHash(refreshTokenGenerator.hash(rawToken))
-                .expiresAt(Instant.now().plus(refreshTokeTtl))
+                .expiresAt(Instant.now().plus(refreshTokenTtl))
                 .build();
 
         refreshTokenRepository.save(refreshToken);

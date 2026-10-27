@@ -1,7 +1,7 @@
 package com.example.user_service.controller;
 
-import com.example.user_service.dto.LoginRequestDto;
-import com.example.user_service.dto.LoginResponseDto;
+import com.example.user_service.dto.AuthRequestDto;
+import com.example.user_service.dto.AuthResponseDto;
 import com.example.user_service.dto.RegistrationRequestDto;
 import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.exception.EmailAlreadyExistsException;
@@ -9,12 +9,16 @@ import com.example.user_service.exception.InvalidCredentialException;
 import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
 import com.example.user_service.exception.UserSuspendedException;
 import com.example.user_service.config.SecurityConfig;
+import com.example.user_service.security.RefreshTokenCookieService;
 import com.example.user_service.service.AuthenticationService;
+import com.example.user_service.service.LoginResult;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -22,11 +26,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.Instant;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -63,6 +69,9 @@ class AuthenticationControllerTest {
     // Required by the resource server config in SecurityConfig; not loaded by @WebMvcTest.
     @MockitoBean
     private JwtDecoder jwtDecoder;
+
+    @MockitoBean
+    private RefreshTokenCookieService refreshTokenCookieService;
 
     @Test
     void register_returnsCreatedWithResponseBody() throws Exception {
@@ -153,19 +162,34 @@ class AuthenticationControllerTest {
     @Test
     void login_returnsOkWithLoginResponse() throws Exception {
         var userId = UUID.randomUUID().toString();
-        when(authenticationService.login(any(LoginRequestDto.class))).thenReturn(new LoginResponseDto(
-                "access-token",
-                userId,
-                "Jane",
-                "Doe",
-                "jane.doe@gmail.com",
-                "USER"
-        ));
+
+        when(authenticationService.login(any(AuthRequestDto.class))).thenReturn(
+                new LoginResult(
+                        new AuthResponseDto(
+                                "access-token",
+                                userId,
+                                "Jane",
+                                "Doe",
+                                "jane.doe@gmail.com",
+                                "USER"
+                        ),
+                        "refresh-token"
+                )
+        );
+        when(refreshTokenCookieService.createRefreshTokenCookie("refresh-token")).thenReturn(
+                ResponseCookie.from(RefreshTokenCookieService.COOKIE_NAME, "refresh-token")
+                        .path("/auth")
+                        .httpOnly(true)
+                        .build()
+        );
 
         mockMvc.perform(post(LOGIN_URL)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_LOGIN_REQUEST))
                 .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("refresh_token=refresh-token")))
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("HttpOnly")))
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
                 .andExpect(jsonPath("$.accessToken").value("access-token"))
                 .andExpect(jsonPath("$.userId").value(userId))
                 .andExpect(jsonPath("$.email").value("jane.doe@gmail.com"))
@@ -194,7 +218,7 @@ class AuthenticationControllerTest {
 
     @Test
     void login_returnsUnauthorized_whenCredentialsAreInvalid() throws Exception {
-        when(authenticationService.login(any(LoginRequestDto.class)))
+        when(authenticationService.login(any(AuthRequestDto.class)))
                 .thenThrow(new InvalidCredentialException("Invalid email or password"));
 
         mockMvc.perform(post(LOGIN_URL)
@@ -207,7 +231,7 @@ class AuthenticationControllerTest {
 
     @Test
     void login_returnsForbidden_whenUserIsSuspended() throws Exception {
-        when(authenticationService.login(any(LoginRequestDto.class)))
+        when(authenticationService.login(any(AuthRequestDto.class)))
                 .thenThrow(new UserSuspendedException("Your account has been suspended"));
 
         mockMvc.perform(post(LOGIN_URL)
