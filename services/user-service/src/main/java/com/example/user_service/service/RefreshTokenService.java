@@ -3,10 +3,12 @@ package com.example.user_service.service;
 
 import com.example.user_service.entity.RefreshToken;
 import com.example.user_service.entity.User;
+import com.example.user_service.exception.InvalidRefreshTokenException;
 import com.example.user_service.repository.RefreshTokenRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -21,7 +23,7 @@ public class RefreshTokenService {
     @Value("${security.refresh-token.ttl}")
     private Duration refreshTokenTtl;
 
-    public String createFor(User user) {
+    public String createFor(final User user) {
         String rawToken = refreshTokenGenerator.generate();
 
         RefreshToken refreshToken = RefreshToken.builder()
@@ -32,5 +34,19 @@ public class RefreshTokenService {
 
         refreshTokenRepository.save(refreshToken);
         return rawToken;
+    }
+
+    @Transactional(readOnly = true)
+    public RefreshToken validate(final String rawToken) {
+        String hashedToken = refreshTokenGenerator.hash(rawToken);
+
+        var refreshToken = refreshTokenRepository.findByTokenHash(hashedToken)
+                .orElseThrow(InvalidRefreshTokenException::new);
+
+        if (refreshToken.isExpired() || refreshToken.isRevoked()) {
+            throw new InvalidRefreshTokenException();
+        }
+
+        return refreshToken;
     }
 }

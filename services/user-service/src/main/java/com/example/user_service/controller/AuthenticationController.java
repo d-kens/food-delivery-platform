@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,6 +27,14 @@ public class AuthenticationController {
 
     private final AuthenticationService authenticationService;
     private final RefreshTokenCookieService refreshTokenCookieService;
+
+    @PostMapping("register")
+    @ResponseStatus(HttpStatus.CREATED)
+    public RegistrationResponseDto register(
+            @Valid @RequestBody final RegistrationRequestDto request
+    ){
+        return authenticationService.register(request);
+    }
 
     @PostMapping("login")
     public ResponseEntity<AuthResponseDto> login(
@@ -43,11 +52,10 @@ public class AuthenticationController {
                 .body(authResponse);
     }
 
-    @PostMapping("register")
-    @ResponseStatus(HttpStatus.CREATED)
-    public RegistrationResponseDto register(
-            @Valid @RequestBody final RegistrationRequestDto request
-    ){
-        return authenticationService.register(request);
+    @PostMapping("refresh-token")
+    public AuthResponseDto refreshToken(
+            @CookieValue(name = RefreshTokenCookieService.COOKIE_NAME, required = false) final String refreshToken
+    ) {
+       return authenticationService.refreshToken(refreshToken);
     }
 }

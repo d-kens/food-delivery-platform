@@ -1,6 +1,7 @@
 package com.example.user_service.service.mapper;
 
 
+import com.example.user_service.dto.AuthResponseDto;
 import com.example.user_service.dto.RegistrationRequestDto;
 import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.entity.User;
@@ -20,4 +21,7 @@ public interface UserMapper {
     User toUserEntity(RegistrationRequestDto request);
 
     RegistrationResponseDto toRegistrationResponse(User user);
+
+    @Mapping(target = "userId", source = "user.id")
+    AuthResponseDto toAuthResponse(User user, String accessToken);
 }

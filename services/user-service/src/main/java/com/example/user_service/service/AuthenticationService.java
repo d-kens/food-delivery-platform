@@ -9,6 +9,7 @@ import com.example.user_service.common.Role;
 import com.example.user_service.entity.User;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.InvalidCredentialException;
+import com.example.user_service.exception.InvalidRefreshTokenException;
 import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
 import com.example.user_service.exception.UserSuspendedException;
 import com.example.user_service.repository.UserRepository;
@@ -67,15 +68,25 @@ public class AuthenticationService {
         String accessToken = jwtService.generateToken(user);
         String refreshToken = refreshTokenService.createFor(user);
 
-        var loginResponse = new AuthResponseDto(
-                accessToken,
-                user.getId().toString(),
-                user.getFirstName(),
-                user.getLastName(),
-                user.getEmail(),
-                user.getRole().toString()
-        );
+        var loginResponse = userMapper.toAuthResponse(user, accessToken);
 
         return new LoginResult(loginResponse, refreshToken);
+    }
+
+    public AuthResponseDto refreshToken(final String refreshToken) {
+
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new InvalidRefreshTokenException();
+        }
+
+        var storedToken = refreshTokenService.validate(refreshToken);
+        var user = storedToken.getUser();
+
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new UserSuspendedException("Your account has been suspended");
+        }
+
+        String accessToken = jwtService.generateToken(user);
+        return userMapper.toAuthResponse(user, accessToken);
     }
 }
