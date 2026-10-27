@@ -1,0 +1,15 @@
+### Login (sets the refresh_token cookie)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "jane.doe@gmail.com",
+  "password": "password123"
+}
+
+### Refresh access token (sends the refresh_token cookie from login)
+POST {{baseUrl}}/auth/refresh-token
+
+### Refresh without cookie (expect 401)
+# @no-cookie-jar
+POST {{baseUrl}}/auth/refresh-token
