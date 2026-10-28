@@ -1,7 +1,9 @@
 package com.example.user_service.service.mapper;
 
+import com.example.user_service.dto.AuthResponseDto;
 import com.example.user_service.dto.RegistrationRequestDto;
 import com.example.user_service.common.Role;
+import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.entity.User;
 import com.example.user_service.common.UserStatus;
 import org.junit.jupiter.api.Test;
@@ -13,24 +15,27 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class UserMapperTest {
 
+    private static final UUID ID = UUID.randomUUID();
+    private static final String EMAIL = "jane.doe@gmail.com";
+    private static final String PHONE_NUMBER = "0707127309";
+    private static final String FIRST_NAME = "Jane";
+    private static final String LAST_NAME = "Doe";
+    private static final Instant CREATED_AT = Instant.parse("2026-01-01T10:00:00Z");
+
     private final UserMapper userMapper = new UserMapperImpl();
 
     @Test
     void toUserEntity_mapsProfileFields() {
-        var request = new RegistrationRequestDto("jane.doe@gmail.com", "T3st@12367", "Jane", "Doe", "0707127309");
+        var user = userMapper.toUserEntity(registrationRequest(PHONE_NUMBER));
 
-        var user = userMapper.toUserEntity(request);
-
-        assertThat(user.getEmail()).isEqualTo("jane.doe@gmail.com");
-        assertThat(user.getFirstName()).isEqualTo("Jane");
-        assertThat(user.getLastName()).isEqualTo("Doe");
+        assertThat(user.getEmail()).isEqualTo(EMAIL);
+        assertThat(user.getFirstName()).isEqualTo(FIRST_NAME);
+        assertThat(user.getLastName()).isEqualTo(LAST_NAME);
     }
 
     @Test
     void toUserEntity_leavesFieldsSetByServiceOrDatabaseUnset() {
-        var request = new RegistrationRequestDto("jane.doe@gmail.com", "T3st@12367", "Jane", "Doe", "0707127309");
-
-        var user = userMapper.toUserEntity(request);
+        var user = userMapper.toUserEntity(registrationRequest(PHONE_NUMBER));
 
         assertThat(user.getId()).isNull();
         assertThat(user.getPhoneNumber()).isNull();
@@ -42,39 +47,40 @@ class UserMapperTest {
 
     @Test
     void toUserEntity_defaultsStatusToActive() {
-        var request = new RegistrationRequestDto("jane.doe@gmail.com", "T3st@12367", "Jane", "Doe", null);
-
-        var user = userMapper.toUserEntity(request);
-
+        var user = userMapper.toUserEntity(registrationRequest(null));
         assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
     }
 
     @Test
     void toRegistrationResponse_mapsAllFieldsAndEnumNames() {
-        var id = UUID.randomUUID();
-        var createdAt = Instant.parse("2026-01-01T10:00:00Z");
-        var user = User
+        var response = userMapper.toRegistrationResponse(user());
+        assertThat(response).isEqualTo(new RegistrationResponseDto(
+                ID, EMAIL, PHONE_NUMBER, FIRST_NAME, LAST_NAME, "USER", "ACTIVE", CREATED_AT));
+    }
+
+    @Test
+    void toAuthResponse_mapsUserFieldsAndAccessToken() {
+        var response = userMapper.toAuthResponse(user(), "access-token");
+        assertThat(response).isEqualTo(new AuthResponseDto(
+                "access-token", ID.toString(), FIRST_NAME, LAST_NAME, EMAIL, "USER"));
+    }
+
+    private RegistrationRequestDto registrationRequest(String phoneNumber) {
+        return new RegistrationRequestDto(EMAIL, "T3st@12367", FIRST_NAME, LAST_NAME, phoneNumber);
+    }
+
+    private User user() {
+        return User
                 .builder()
-                .id(id)
-                .email("jane.doe@gmail.com")
-                .phoneNumber("0707127309")
-                .firstName("Jane")
-                .lastName("Doe")
+                .id(ID)
+                .email(EMAIL)
+                .phoneNumber(PHONE_NUMBER)
+                .firstName(FIRST_NAME)
+                .lastName(LAST_NAME)
                 .passwordHash("hashed")
                 .role(Role.USER)
                 .status(UserStatus.ACTIVE)
-                .createdAt(createdAt)
+                .createdAt(CREATED_AT)
                 .build();
-
-        var response = userMapper.toRegistrationResponse(user);
-
-        assertThat(response.id()).isEqualTo(id);
-        assertThat(response.email()).isEqualTo("jane.doe@gmail.com");
-        assertThat(response.phoneNumber()).isEqualTo("0707127309");
-        assertThat(response.firstName()).isEqualTo("Jane");
-        assertThat(response.lastName()).isEqualTo("Doe");
-        assertThat(response.role()).isEqualTo("USER");
-        assertThat(response.status()).isEqualTo("ACTIVE");
-        assertThat(response.createdAt()).isEqualTo(createdAt);
     }
 }
