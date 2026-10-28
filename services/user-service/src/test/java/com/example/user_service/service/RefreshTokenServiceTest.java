@@ -2,6 +2,7 @@ package com.example.user_service.service;
 
 import com.example.user_service.entity.RefreshToken;
 import com.example.user_service.entity.User;
+import com.example.user_service.exception.InvalidRefreshTokenException;
 import com.example.user_service.repository.RefreshTokenRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,9 +15,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -56,5 +59,62 @@ class RefreshTokenServiceTest {
         assertThat(saved.getUser()).isSameAs(user);
         assertThat(saved.getExpiresAt()).isBetween(before.plus(TTL), after.plus(TTL));
         assertThat(saved.getRevokedAt()).isNull();
+    }
+
+    @Test
+    void validate_whenTokenIsValid_returnsRefreshToken() {
+        var savedRefreshToken = createRefreshToken(User.builder().id(UUID.randomUUID()).build());
+
+        when(refreshTokenGenerator.hash("raw-token")).thenReturn("hashed-token");
+        when(refreshTokenRepository.findByTokenHash("hashed-token")).thenReturn(Optional.of(savedRefreshToken));
+
+        var result = refreshTokenService.validate("raw-token");
+
+        assertThat(result).isSameAs(savedRefreshToken);
+    }
+
+    @Test
+    void validate_whenTokenHashIsNotFound_throwsInvalidRefreshTokenException() {
+        when(refreshTokenGenerator.hash("raw-token")).thenReturn("hashed-token");
+        when(refreshTokenRepository.findByTokenHash("hashed-token")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> refreshTokenService.validate("raw-token"))
+                .isInstanceOf(InvalidRefreshTokenException.class)
+                .hasMessage("Invalid or expired refresh token");
+    }
+
+    @Test
+    void validate_whenTokenIsExpired_throwsInvalidRefreshTokenException() {
+        var expiredToken = createRefreshToken(User.builder().id(UUID.randomUUID()).build());
+        expiredToken.setExpiresAt(Instant.now().minusSeconds(1));
+
+        when(refreshTokenGenerator.hash("raw-token")).thenReturn("hashed-token");
+        when(refreshTokenRepository.findByTokenHash("hashed-token")).thenReturn(Optional.of(expiredToken));
+
+        assertThatThrownBy(() -> refreshTokenService.validate("raw-token"))
+                .isInstanceOf(InvalidRefreshTokenException.class)
+                .hasMessage("Invalid or expired refresh token");
+    }
+
+    @Test
+    void validate_whenTokenIsRevoked_throwsInvalidRefreshTokenException() {
+        var revokedToken = createRefreshToken(User.builder().id(UUID.randomUUID()).build());
+        revokedToken.setRevokedAt(Instant.now());
+
+        when(refreshTokenGenerator.hash("raw-token")).thenReturn("hashed-token");
+        when(refreshTokenRepository.findByTokenHash("hashed-token")).thenReturn(Optional.of(revokedToken));
+
+        assertThatThrownBy(() -> refreshTokenService.validate("raw-token"))
+                .isInstanceOf(InvalidRefreshTokenException.class)
+                .hasMessage("Invalid or expired refresh token");
+    }
+
+    private RefreshToken createRefreshToken(User user) {
+        return RefreshToken
+                .builder()
+                .user(user)
+                .tokenHash("hashed-token")
+                .expiresAt(Instant.now().plus(TTL))
+                .build();
     }
 }
