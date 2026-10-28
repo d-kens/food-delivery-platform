@@ -1,20 +1,22 @@
 package com.example.user_service.service;
 
 import com.example.user_service.dto.AuthRequestDto;
+import com.example.user_service.dto.AuthResponseDto;
 import com.example.user_service.dto.RegistrationRequestDto;
 import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.common.Role;
 import com.example.user_service.common.UserStatus;
+import com.example.user_service.entity.RefreshToken;
 import com.example.user_service.entity.User;
-import com.example.user_service.exception.EmailAlreadyExistsException;
-import com.example.user_service.exception.InvalidCredentialException;
-import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
-import com.example.user_service.exception.UserSuspendedException;
+import com.example.user_service.exception.*;
 import com.example.user_service.repository.UserRepository;
 import com.example.user_service.security.JwtService;
 import com.example.user_service.service.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -25,6 +27,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -80,7 +83,6 @@ class AuthenticationServiceTest {
         when(userRepository.existsByPhoneNumber(request.phoneNumber())).thenReturn(false);
         when(userMapper.toUserEntity(request)).thenReturn(user);
         when(passwordEncoder.encode(request.password())).thenReturn(encodedPassword);
-
 
         authenticationService.register(request);
 
@@ -142,16 +144,20 @@ class AuthenticationServiceTest {
         when(jwtService.generateToken(user)).thenReturn("access-token");
         when(refreshTokenService.createFor(user)).thenReturn("refresh-token");
 
+        var expectedResponse = new AuthResponseDto(
+                "access-token",
+                user.getId().toString(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getEmail(),
+                user.getRole().toString()
+        );
+        when(userMapper.toAuthResponse(user, "access-token")).thenReturn(expectedResponse);
+
         var loginResult = authenticationService.login(request);
 
-        assertEquals("access-token", loginResult.authResponse().accessToken());
-        assertEquals("refresh-token", loginResult.refreshToken());
-        assertEquals(user.getId().toString(), loginResult.authResponse().userId());
-        assertEquals(user.getFirstName(), loginResult.authResponse().firstName());
-        assertEquals(user.getLastName(), loginResult.authResponse().lastName());
-        assertEquals(user.getEmail(), loginResult.authResponse().email());
-        assertEquals("USER", loginResult.authResponse().role());
-        verify(jwtService).generateToken(user);
+        assertThat(loginResult.authResponse()).isSameAs(expectedResponse);
+        assertThat(loginResult.refreshToken()).isEqualTo("refresh-token");
     }
 
     @Test
@@ -203,6 +209,64 @@ class AuthenticationServiceTest {
         assertEquals("Your account has been suspended", exception.getMessage());
         verify(jwtService, never()).generateToken(any());
         verify(refreshTokenService, never()).createFor(any());
+    }
+
+    @Test
+    void refreshToken_whenTokenIsValid_returnsAuthResponse() {
+        var user = createActiveUser("j.doe@gmail.com");
+        var storedToken = RefreshToken.builder().user(user).build();
+
+        var expectedResponse = new AuthResponseDto(
+                "access-token",
+                user.getId().toString(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getEmail(),
+                user.getRole().toString()
+        );
+
+        when(refreshTokenService.validate("raw-token")).thenReturn(storedToken);
+        when(jwtService.generateToken(user)).thenReturn("access-token");
+        when(userMapper.toAuthResponse(user, "access-token")).thenReturn(expectedResponse);
+
+        var response = authenticationService.refreshToken("raw-token");
+
+        assertThat(response).isSameAs(expectedResponse);
+        verify(refreshTokenService, never()).createFor(any());
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "  "})
+    void refreshToken_whenTokenIsNullOrBlank_throwsInvalidRefreshTokenException(String token) {
+        assertThatThrownBy(() -> authenticationService.refreshToken(token))
+                .isInstanceOf(InvalidRefreshTokenException.class)
+                .hasMessage("Invalid or expired refresh token");
+        verify(refreshTokenService, never()).validate(any());
+    }
+
+    @Test
+    void refreshToken_whenTokenIsInvalid_throwsInvalidRefreshTokenException() {
+        when(refreshTokenService.validate("raw-token")).thenThrow(new InvalidRefreshTokenException());
+
+        assertThatThrownBy(() -> authenticationService.refreshToken("raw-token"))
+                .isInstanceOf(InvalidRefreshTokenException.class)
+                .hasMessage("Invalid or expired refresh token");
+        verify(jwtService, never()).generateToken(any());
+    }
+
+    @Test
+    void refreshToken_whenUserIsNotActive_throwsUserSuspendedException() {
+        var user = createActiveUser("j.doe@gmail.com");
+        user.setStatus(UserStatus.SUSPENDED);
+        var storedToken = RefreshToken.builder().user(user).build();
+
+        when(refreshTokenService.validate("raw-token")).thenReturn(storedToken);
+
+        assertThatThrownBy(() -> authenticationService.refreshToken("raw-token"))
+                .isInstanceOf(UserSuspendedException.class)
+                .hasMessage("Your account has been suspended");
+        verify(jwtService, never()).generateToken(any());
     }
 
     private AuthRequestDto createLoginRequest() {
