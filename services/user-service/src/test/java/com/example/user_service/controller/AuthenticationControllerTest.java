@@ -6,12 +6,14 @@ import com.example.user_service.dto.RegistrationRequestDto;
 import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.InvalidCredentialException;
+import com.example.user_service.exception.InvalidRefreshTokenException;
 import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
 import com.example.user_service.exception.UserSuspendedException;
 import com.example.user_service.config.SecurityConfig;
 import com.example.user_service.security.RefreshTokenCookieService;
 import com.example.user_service.service.AuthenticationService;
 import com.example.user_service.service.LoginResult;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -40,8 +42,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(SecurityConfig.class)
 class AuthenticationControllerTest {
 
-    private static final String REGISTER_URL = "/auth/register";
     private static final String LOGIN_URL = "/auth/login";
+    private static final String REGISTER_URL = "/auth/register";
+    private static final String REFRESH_TOKEN_URL = "/auth/refresh-token";
 
     private static final String VALID_LOGIN_REQUEST = """
             {
@@ -241,4 +244,75 @@ class AuthenticationControllerTest {
                 .andExpect(jsonPath("$.title").value("Account Suspended"))
                 .andExpect(jsonPath("$.detail").value("Your account has been suspended"));
     }
+
+    @Test
+    void refreshToken_returnsOkWithAuthenticationResponse() throws Exception {
+        var userId = UUID.randomUUID().toString();
+        String refreshToken = "valid-refresh-token";
+        var authResponse = new AuthResponseDto(
+                "access-token",
+                userId,
+                "Jane",
+                "Doe",
+                "jane.doe@gmail.com",
+                "USER"
+        );
+
+        when(authenticationService.refreshToken(refreshToken)).thenReturn(authResponse);
+
+        mockMvc.perform(post(REFRESH_TOKEN_URL)
+                    .cookie(new Cookie(RefreshTokenCookieService.COOKIE_NAME, refreshToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value("access-token"))
+                .andExpect(jsonPath("$.userId").value(userId))
+                .andExpect(jsonPath("$.email").value("jane.doe@gmail.com"))
+                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE))
+                .andExpect(jsonPath("$.refreshToken").doesNotExist());
+    }
+
+    @Test
+    void refreshToken_returnsUnauthorized_whenCookieIsMissing() throws Exception {
+        when(authenticationService.refreshToken(null))
+                .thenThrow(new InvalidRefreshTokenException());
+
+        mockMvc.perform(post(REFRESH_TOKEN_URL))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.title").value("Invalid Refresh Token"))
+                .andExpect(jsonPath("$.detail").value("Invalid or expired refresh token"));
+
+        verify(authenticationService).refreshToken(null);
+    }
+
+    @Test
+    void refreshToken_returnsUnauthorized_whenTokenIsInvalid() throws Exception {
+        String refreshToken = "invalid-refresh-token";
+        when(authenticationService.refreshToken(refreshToken))
+                .thenThrow(new InvalidRefreshTokenException());
+
+        mockMvc.perform(post(REFRESH_TOKEN_URL)
+                    .cookie(new Cookie(RefreshTokenCookieService.COOKIE_NAME, refreshToken)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.title").value("Invalid Refresh Token"))
+                .andExpect(jsonPath("$.detail").value("Invalid or expired refresh token"));
+
+        verify(authenticationService).refreshToken(refreshToken);
+    }
+
+    @Test
+    void refreshToken_returnsForbidden_whenUserIsSuspended() throws Exception {
+        String refreshToken = "valid-refresh-token";
+        when(authenticationService.refreshToken(refreshToken))
+                .thenThrow(new UserSuspendedException("Your account has been suspended"));
+
+        mockMvc.perform(post(REFRESH_TOKEN_URL)
+                        .cookie(new Cookie(RefreshTokenCookieService.COOKIE_NAME, refreshToken)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.title").value("Account Suspended"))
+                .andExpect(jsonPath("$.detail").value("Your account has been suspended"));
+
+        verify(authenticationService).refreshToken(refreshToken);
+    }
+
+
 }
