@@ -3,7 +3,6 @@ import { RouterOutlet } from '@angular/router';
 import { Footer } from '../footer/footer';
 import { Header } from '../header/header';
 
-/** Public marketing pages: full header and footer. */
 @Component({
   selector: 'app-main-layout',
   imports: [RouterOutlet, Header, Footer],

@@ -49,4 +49,11 @@ public class RefreshTokenService {
 
         return refreshToken;
     }
+
+    @Transactional
+    public void revoke(final String rawToken) {
+        refreshTokenRepository.findByTokenHash(refreshTokenGenerator.hash(rawToken))
+                .filter(refreshToken -> !refreshToken.isRevoked())
+                .ifPresent(refreshToken -> refreshToken.setRevokedAt(Instant.now()));
+    }
 }

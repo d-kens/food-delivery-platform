@@ -1,7 +1,7 @@
 package com.example.user_service.service;
 
 import com.example.user_service.dto.AuthRequestDto;
-import com.example.user_service.dto.AuthResponseDto;
+import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.dto.RegistrationRequestDto;
 import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.common.Role;
@@ -115,19 +115,19 @@ class AuthenticationServiceTest {
         when(jwtService.generateToken(user)).thenReturn("access-token");
         when(refreshTokenService.createFor(user)).thenReturn("refresh-token");
 
-        var expectedResponse = new AuthResponseDto(
-                "access-token",
+        var expectedResponse = new UserResponseDto(
                 user.getId().toString(),
                 user.getFirstName(),
                 user.getLastName(),
                 user.getEmail(),
                 List.of("USER")
         );
-        when(userMapper.toAuthResponse(user, "access-token")).thenReturn(expectedResponse);
+        when(userMapper.toUserResponse(user)).thenReturn(expectedResponse);
 
         var loginResult = authenticationService.login(request);
 
-        assertThat(loginResult.authResponse()).isSameAs(expectedResponse);
+        assertThat(loginResult.user()).isSameAs(expectedResponse);
+        assertThat(loginResult.accessToken()).isEqualTo("access-token");
         assertThat(loginResult.refreshToken()).isEqualTo("refresh-token");
     }
 
@@ -187,8 +187,7 @@ class AuthenticationServiceTest {
         var user = createActiveUser("j.doe@gmail.com");
         var storedToken = RefreshToken.builder().user(user).build();
 
-        var expectedResponse = new AuthResponseDto(
-                "access-token",
+        var expectedResponse = new UserResponseDto(
                 user.getId().toString(),
                 user.getFirstName(),
                 user.getLastName(),
@@ -198,11 +197,12 @@ class AuthenticationServiceTest {
 
         when(refreshTokenService.validate("raw-token")).thenReturn(storedToken);
         when(jwtService.generateToken(user)).thenReturn("access-token");
-        when(userMapper.toAuthResponse(user, "access-token")).thenReturn(expectedResponse);
+        when(userMapper.toUserResponse(user)).thenReturn(expectedResponse);
 
-        var response = authenticationService.refreshToken("raw-token");
+        var result = authenticationService.refreshToken("raw-token");
 
-        assertThat(response).isSameAs(expectedResponse);
+        assertThat(result.user()).isSameAs(expectedResponse);
+        assertThat(result.accessToken()).isEqualTo("access-token");
         verify(refreshTokenService, never()).createFor(any());
     }
 
@@ -273,5 +273,21 @@ class AuthenticationServiceTest {
                 .firstName(request.firstName())
                 .lastName(request.lastName())
                 .build();
+    }
+
+    @Test
+    void logout_revokesRefreshToken_whenPresent() {
+        authenticationService.logout("raw-token");
+
+        verify(refreshTokenService).revoke("raw-token");
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "  "})
+    void logout_doesNothing_whenRefreshTokenIsMissing(String refreshToken) {
+        authenticationService.logout(refreshToken);
+
+        verify(refreshTokenService, never()).revoke(any());
     }
 }

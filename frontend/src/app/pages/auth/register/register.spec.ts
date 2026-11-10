@@ -1,5 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { Router, provideRouter } from '@angular/router';
 import { Register } from './register';
 
 describe('Register', () => {
@@ -9,7 +11,7 @@ describe('Register', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [Register],
-      providers: [provideRouter([])],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
 
     fixture = TestBed.createComponent(Register);
@@ -79,5 +81,69 @@ describe('Register', () => {
     await submit();
 
     expect(errorCount()).toBe(0);
+  });
+
+  describe('talking to the API', () => {
+    let http: HttpTestingController;
+
+    beforeEach(() => {
+      http = TestBed.inject(HttpTestingController);
+    });
+
+    afterEach(() => http.verify());
+
+    const fillValidForm = async () => {
+      await type('firstName', '  Jane ');
+      await type('lastName', 'Doe');
+      await type('email', 'jane.doe@gmail.com');
+      await type('password', 'Str0ngPassword!');
+    };
+
+    it('should create the account and go to login with the email, without logging in', async () => {
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      await fillValidForm();
+      await submit();
+
+      const register = http.expectOne((r) => r.url.endsWith('/auth/register'));
+      expect(register.request.body).toEqual({
+        firstName: 'Jane', lastName: 'Doe', email: 'jane.doe@gmail.com', password: 'Str0ngPassword!',
+      });
+      register.flush({ id: '1' }, { status: 201, statusText: 'Created' });
+      await fixture.whenStable();
+
+      http.expectNone((r) => r.url.endsWith('/auth/login'));
+      expect(navigate).toHaveBeenCalledWith(['/login'], {
+        queryParamsHandling: 'preserve',
+        state: { registeredEmail: 'jane.doe@gmail.com' },
+      });
+    });
+
+    it('should flag the email when it already has an account', async () => {
+      await fillValidForm();
+      await submit();
+
+      http.expectOne((r) => r.url.endsWith('/auth/register')).flush(
+        { title: 'Email already exists', detail: 'An account with this email already exists' },
+        { status: 409, statusText: 'Conflict' },
+      );
+      await fixture.whenStable();
+
+      expect(message('email').textContent).toContain('This email already has an account');
+      expect(input('email').getAttribute('aria-invalid')).toBe('true');
+      expect(document.activeElement).toBe(input('email'));
+    });
+
+    it('should show backend field errors on the matching fields', async () => {
+      await fillValidForm();
+      await submit();
+
+      http.expectOne((r) => r.url.endsWith('/auth/register')).flush(
+        { title: 'Validation failed', errors: { lastName: ['Last name must not exceed 100 characters'] } },
+        { status: 400, statusText: 'Bad Request' },
+      );
+      await fixture.whenStable();
+
+      expect(message('lastName').textContent).toContain('Last name must not exceed 100 characters');
+    });
   });
 });

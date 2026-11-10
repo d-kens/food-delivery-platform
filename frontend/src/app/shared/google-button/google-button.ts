@@ -1,6 +1,5 @@
 import { Component, input } from '@angular/core';
 
-/** "Continue with Google" button. UI only until Google sign-in is built. */
 @Component({
   selector: 'app-google-button',
   template: `

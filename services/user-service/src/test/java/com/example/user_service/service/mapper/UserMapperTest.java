@@ -1,6 +1,6 @@
 package com.example.user_service.service.mapper;
 
-import com.example.user_service.dto.AuthResponseDto;
+import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.dto.RegistrationRequestDto;
 import com.example.user_service.common.Role;
 import com.example.user_service.dto.RegistrationResponseDto;
@@ -60,10 +60,10 @@ class UserMapperTest {
     }
 
     @Test
-    void toAuthResponse_mapsUserFieldsAndAccessToken() {
-        var response = userMapper.toAuthResponse(user(), "access-token");
-        assertThat(response).isEqualTo(new AuthResponseDto(
-                "access-token", ID.toString(), FIRST_NAME, LAST_NAME, EMAIL, List.of("RIDER", "USER")));
+    void toUserResponse_mapsUserFields() {
+        var response = userMapper.toUserResponse(user());
+        assertThat(response).isEqualTo(new UserResponseDto(
+                ID.toString(), FIRST_NAME, LAST_NAME, EMAIL, List.of("RIDER", "USER")));
     }
 
     private RegistrationRequestDto registrationRequest() {

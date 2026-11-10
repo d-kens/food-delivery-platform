@@ -2,8 +2,7 @@ package com.example.user_service.dto;
 
 import java.util.List;
 
-public record AuthResponseDto(
-        String accessToken,
+public record UserResponseDto(
         String userId,
         String firstName,
         String lastName,

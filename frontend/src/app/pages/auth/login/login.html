@@ -1,6 +1,12 @@
 <h1 class="font-display text-3xl font-bold tracking-tight">Welcome back</h1>
 <p class="mt-2 text-zinc-600">Log in to order from your favourite restaurants.</p>
 
+@if (justRegistered()) {
+  <p class="mt-5 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-800 ring-1 ring-emerald-200" role="status">
+    Account created. Log in to start ordering.
+  </p>
+}
+
 <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="mt-6 space-y-1">
   <div>
     <label for="email" class="form-label">Email</label>
@@ -48,7 +54,7 @@
       <app-field-message
         class="flex-1"
         fieldId="password"
-        [error]="error('password')"
+        [error]="error('password') ?? formError()"
         [warning]="capsLock() ? 'Caps Lock is on' : null"
       />
       <a href="#" class="mt-1 shrink-0 text-xs leading-4 font-medium text-brand-600 hover:text-brand-700">
@@ -58,7 +64,14 @@
   </div>
 
   <div class="pt-3">
-    <button type="submit" class="btn-primary">Log in</button>
+    <button type="submit" class="btn-primary gap-2" [disabled]="submitting()">
+      @if (submitting()) {
+        <app-spinner />
+        Logging in…
+      } @else {
+        Log in
+      }
+    </button>
   </div>
 </form>
 

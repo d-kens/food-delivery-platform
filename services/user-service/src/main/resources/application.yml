@@ -18,6 +18,11 @@ security:
     expiration: ${JWT_EXPIRATION:15m}
     private-key: ${JWT_PRIVATE_KEY_LOCATION:file:certs/private.pem}
     public-key: ${JWT_PUBLIC_KEY_LOCATION:file:certs/public.pem}
+    cookie-secure: ${JWT_COOKIE_SECURE:true}
+    cookie-path: ${JWT_COOKIE_PATH:/api}
+
+  csrf:
+    cookie-secure: ${CSRF_COOKIE_SECURE:true}
 
   refresh-token:
     ttl: ${REFRESH_TOKEN_TTL:7d}

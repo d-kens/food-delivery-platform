@@ -26,8 +26,6 @@ interface Step {
   description: string;
 }
 
-// Static placeholder content until restaurant-service exposes real data.
-// Images are Unsplash photo ids, resolved by the IMAGE_LOADER in app.config.ts.
 @Component({
   selector: 'app-landing',
   imports: [RouterLink, NgOptimizedImage, NgIcon],
@@ -40,7 +38,6 @@ export class Landing {
     { caption: 'Get it on', name: 'Google Play' },
   ];
 
-  // Kept in memory until favourites are stored per user.
   private readonly favourites = signal<ReadonlySet<string>>(new Set());
 
   protected readonly orderSteps = ['Ordered', 'Preparing', 'On the way', 'Delivered'];
@@ -167,7 +164,6 @@ export class Landing {
 
   protected onSearch(event: Event, address: string): void {
     event.preventDefault();
-    // TODO: navigate to restaurant search once it exists.
     console.debug('Search restaurants near', address);
   }
 }

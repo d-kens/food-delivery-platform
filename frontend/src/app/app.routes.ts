@@ -30,6 +30,5 @@ export const routes: Routes = [
       },
     ],
   },
-  // Pages that don't exist yet (partners etc.) go home instead of erroring.
   { path: '**', redirectTo: '' },
 ];

@@ -4,7 +4,6 @@ import com.example.user_service.AbstractIntegrationTest;
 import com.example.user_service.common.Role;
 import com.example.user_service.entity.User;
 import com.example.user_service.repository.UserRepository;
-import com.jayway.jsonpath.JsonPath;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jwt.SignedJWT;
 import org.junit.jupiter.api.AfterEach;
@@ -12,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
@@ -76,7 +76,7 @@ class JwksControllerIT extends AbstractIntegrationTest {
     }
 
     private String login() throws Exception {
-        var body = mockMvc.perform(post(LOGIN_URL)
+        return mockMvc.perform(post(LOGIN_URL)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -87,7 +87,11 @@ class JwksControllerIT extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
-                .getContentAsString();
-        return JsonPath.read(body, "$.accessToken");
+                .getHeaders(HttpHeaders.SET_COOKIE)
+                .stream()
+                .filter(header -> header.startsWith("access_token="))
+                .map(header -> header.substring("access_token=".length(), header.indexOf(';')))
+                .findFirst()
+                .orElseThrow();
     }
 }

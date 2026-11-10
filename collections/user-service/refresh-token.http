@@ -1,4 +1,4 @@
-### Login (sets the refresh_token cookie)
+### Login (sets access_token, refresh_token and XSRF-TOKEN cookies)
 POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
@@ -7,8 +7,24 @@ Content-Type: application/json
   "password": "password123"
 }
 
-### Refresh access token (sends the refresh_token cookie from login)
+> {%
+  const xsrf = response.headers.valuesOf("Set-Cookie").find(cookie => cookie.startsWith("XSRF-TOKEN="));
+  if (xsrf) client.global.set("xsrf", xsrf.substring("XSRF-TOKEN=".length, xsrf.indexOf(";")));
+%}
+
+### Current user (sends the access_token cookie)
+GET {{baseUrl}}/users/me
+
+### Refresh access token (sends the refresh_token cookie; needs the XSRF header)
 POST {{baseUrl}}/auth/refresh-token
+X-XSRF-TOKEN: {{xsrf}}
+
+### Refresh without the XSRF header (expect 403)
+POST {{baseUrl}}/auth/refresh-token
+
+### Log out (revokes the refresh token and clears both cookies)
+POST {{baseUrl}}/auth/logout
+X-XSRF-TOKEN: {{xsrf}}
 
 ### Refresh without cookie (expect 401)
 # @no-cookie-jar
