@@ -46,6 +46,7 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
     private static final String LOGIN_URL = "/auth/login";
     private static final String REFRESH_TOKEN_URL = "/auth/refresh-token";
     private static final String ME_URL = "/users/me";
+    private static final String LOGOUT_URL = "/auth/logout";
     private static final String EMAIL = "jane.doe@gmail.com";
     private static final String PASSWORD = "Str0ngPassword!";
     private static final Duration REFRESH_TOKEN_TTL = Duration.ofDays(7);
@@ -469,6 +470,66 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson(EMAIL, PASSWORD)))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void logout_revokesRefreshTokenAndClearsBothCookies() throws Exception {
+        registerUser();
+        String refreshToken = loginAndGetRefreshToken();
+
+        var setCookies = mockMvc.perform(post(LOGOUT_URL).with(xsrf())
+                        .cookie(new Cookie("refresh_token", refreshToken)))
+                .andExpect(status().isNoContent())
+                .andReturn()
+                .getResponse()
+                .getHeaders(HttpHeaders.SET_COOKIE);
+
+        assertThat(cookieHeader(setCookies, "access_token")).contains("Max-Age=0");
+        assertThat(cookieHeader(setCookies, "refresh_token")).contains("Max-Age=0");
+        assertThat(refreshTokenRepository.findAll())
+                .singleElement()
+                .satisfies(token -> assertThat(token.getRevokedAt()).isNotNull());
+
+        mockMvc.perform(post(REFRESH_TOKEN_URL).with(xsrf())
+                        .cookie(new Cookie("refresh_token", refreshToken)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logout_isRejected_withoutCsrfToken() throws Exception {
+        registerUser();
+        String refreshToken = loginAndGetRefreshToken();
+
+        mockMvc.perform(post(LOGOUT_URL).cookie(new Cookie("refresh_token", refreshToken)))
+                .andExpect(status().isForbidden());
+
+        assertThat(refreshTokenRepository.findAll())
+                .singleElement()
+                .satisfies(token -> assertThat(token.getRevokedAt()).isNull());
+    }
+
+    @Test
+    void logout_works_whenAccessTokenCookieHasExpired() throws Exception {
+        registerUser();
+        String refreshToken = loginAndGetRefreshToken();
+
+        mockMvc.perform(post(LOGOUT_URL).with(xsrf())
+                        .cookie(new Cookie("access_token", "expired"), new Cookie("refresh_token", refreshToken)))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void refreshToken_clearsBothCookies_whenRefreshTokenIsInvalid() throws Exception {
+        var setCookies = mockMvc.perform(post(REFRESH_TOKEN_URL).with(xsrf())
+                        .cookie(new Cookie("refresh_token", "unknown-token")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.title").value("Invalid Refresh Token"))
+                .andReturn()
+                .getResponse()
+                .getHeaders(HttpHeaders.SET_COOKIE);
+
+        assertThat(cookieHeader(setCookies, "access_token")).contains("Max-Age=0");
+        assertThat(cookieHeader(setCookies, "refresh_token")).contains("Max-Age=0");
     }
 
     private String loginAndGetAccessToken() throws Exception {

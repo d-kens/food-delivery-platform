@@ -117,4 +117,37 @@ class RefreshTokenServiceTest {
                 .expiresAt(Instant.now().plus(TTL))
                 .build();
     }
+
+    @Test
+    void revoke_marksTokenAsRevoked() {
+        var token = RefreshToken.builder().tokenHash("hashed").expiresAt(Instant.now().plus(TTL)).build();
+        when(refreshTokenGenerator.hash("raw-token")).thenReturn("hashed");
+        when(refreshTokenRepository.findByTokenHash("hashed")).thenReturn(Optional.of(token));
+
+        refreshTokenService.revoke("raw-token");
+
+        assertThat(token.getRevokedAt()).isNotNull();
+    }
+
+    @Test
+    void revoke_keepsOriginalRevocationTime_whenAlreadyRevoked() {
+        var revokedAt = Instant.parse("2026-01-01T10:00:00Z");
+        var token = RefreshToken.builder().tokenHash("hashed").revokedAt(revokedAt).build();
+        when(refreshTokenGenerator.hash("raw-token")).thenReturn("hashed");
+        when(refreshTokenRepository.findByTokenHash("hashed")).thenReturn(Optional.of(token));
+
+        refreshTokenService.revoke("raw-token");
+
+        assertThat(token.getRevokedAt()).isEqualTo(revokedAt);
+    }
+
+    @Test
+    void revoke_doesNothing_whenTokenIsUnknown() {
+        when(refreshTokenGenerator.hash("unknown")).thenReturn("hashed-unknown");
+        when(refreshTokenRepository.findByTokenHash("hashed-unknown")).thenReturn(Optional.empty());
+
+        refreshTokenService.revoke("unknown");
+
+        verify(refreshTokenRepository).findByTokenHash("hashed-unknown");
+    }
 }

@@ -10,11 +10,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class AccessTokenCookieServiceTest {
 
-    private static final JwtProperties JWT_PROPERTIES =
-            new JwtProperties("issuer", "key-id", Duration.ofMinutes(15), null, null);
-
     private final AccessTokenCookieService accessTokenCookieService =
-            new AccessTokenCookieService(JWT_PROPERTIES, true, "/api");
+            new AccessTokenCookieService(jwtProperties(true, "/api"));
 
     @Test
     void createAccessTokenCookie_returnsCookieThatExpiresWithTheToken() {
@@ -42,11 +39,15 @@ class AccessTokenCookieServiceTest {
 
     @Test
     void createAccessTokenCookie_usesConfiguredSecureAndPath() {
-        var devCookieService = new AccessTokenCookieService(JWT_PROPERTIES, false, "/");
+        var devCookieService = new AccessTokenCookieService(jwtProperties(false, "/"));
 
         ResponseCookie cookie = devCookieService.createAccessTokenCookie("access-token");
 
         assertThat(cookie.isSecure()).isFalse();
         assertThat(cookie.getPath()).isEqualTo("/");
+    }
+
+    private static JwtProperties jwtProperties(boolean cookieSecure, String cookiePath) {
+        return new JwtProperties("issuer", "key-id", Duration.ofMinutes(15), null, null, cookieSecure, cookiePath);
     }
 }

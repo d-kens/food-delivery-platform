@@ -11,6 +11,8 @@ public record JwtProperties(
         String keyId,
         Duration expiration,
         Resource privateKey,
-        Resource publicKey
+        Resource publicKey,
+        boolean cookieSecure,
+        String cookiePath
 ) {
 }

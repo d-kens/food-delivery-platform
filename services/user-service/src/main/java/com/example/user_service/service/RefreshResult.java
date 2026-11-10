@@ -1,9 +1,9 @@
 package com.example.user_service.service;
 
-import com.example.user_service.dto.AuthResponseDto;
+import com.example.user_service.dto.UserResponseDto;
 
 public record RefreshResult(
-        AuthResponseDto authResponse,
+        UserResponseDto user,
         String accessToken
 ) {
 }

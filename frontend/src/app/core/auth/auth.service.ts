@@ -1,8 +1,8 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { Observable, catchError, map, of, throwError } from 'rxjs';
+import { Observable, catchError, finalize, map, of, shareReplay } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { AuthResponse, LoginRequest, RegisterRequest, SessionUser } from './auth.models';
+import { LoginRequest, RegisterRequest, SessionUser, UserResponse } from './auth.models';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -11,13 +11,14 @@ export class AuthService {
   private readonly usersUrl = `${environment.apiUrl}/users`;
 
   private readonly currentUser = signal<SessionUser | null>(null);
+  private refreshInFlight: Observable<SessionUser> | null = null;
 
   readonly user = this.currentUser.asReadonly();
   readonly isLoggedIn = computed(() => this.currentUser() !== null);
 
   login(request: LoginRequest): Observable<SessionUser> {
     return this.http
-      .post<AuthResponse>(`${this.authUrl}/login`, request)
+      .post<UserResponse>(`${this.authUrl}/login`, request)
       .pipe(map((response) => this.startSession(response)));
   }
 
@@ -25,26 +26,42 @@ export class AuthService {
     return this.http.post<unknown>(`${this.authUrl}/register`, request).pipe(map(() => undefined));
   }
 
+  logout(): Observable<void> {
+    return this.http.post<void>(`${this.authUrl}/logout`, null).pipe(
+      catchError(() => of(undefined)),
+      map(() => undefined),
+      finalize(() => this.clearSession()),
+    );
+  }
+
   restoreSession(): Observable<SessionUser | null> {
-    return this.http.get<AuthResponse>(`${this.usersUrl}/me`).pipe(
-      catchError((error: unknown) =>
-        error instanceof HttpErrorResponse && error.status === 401
-          ? this.http.post<AuthResponse>(`${this.authUrl}/refresh-token`, null)
-          : throwError(() => error),
-      ),
+    return this.http.get<UserResponse>(`${this.usersUrl}/me`).pipe(
       map((response) => this.startSession(response)),
       catchError(() => {
-        this.currentUser.set(null);
+        this.clearSession();
         return of(null);
       }),
     );
+  }
+
+  refresh(): Observable<SessionUser> {
+    this.refreshInFlight ??= this.http.post<UserResponse>(`${this.authUrl}/refresh-token`, null).pipe(
+      map((response) => this.startSession(response)),
+      finalize(() => (this.refreshInFlight = null)),
+      shareReplay(1),
+    );
+    return this.refreshInFlight;
   }
 
   clearSession(): void {
     this.currentUser.set(null);
   }
 
-  private startSession(response: AuthResponse): SessionUser {
+  isAuthEndpoint(url: string): boolean {
+    return url.startsWith(`${this.authUrl}/`);
+  }
+
+  private startSession(response: UserResponse): SessionUser {
     const user: SessionUser = {
       id: response.userId,
       firstName: response.firstName,

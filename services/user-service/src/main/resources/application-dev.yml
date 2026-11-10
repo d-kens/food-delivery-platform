@@ -5,6 +5,8 @@ security:
   jwt:
     cookie-secure: false
     cookie-path: /
+  csrf:
+    cookie-secure: false
   refresh-token:
     cookie-secure: false
     cookie-path: /auth

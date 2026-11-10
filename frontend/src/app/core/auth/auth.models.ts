@@ -10,7 +10,7 @@ export interface RegisterRequest {
   lastName: string;
 }
 
-export interface AuthResponse {
+export interface UserResponse {
   userId: string;
   firstName: string;
   lastName: string;

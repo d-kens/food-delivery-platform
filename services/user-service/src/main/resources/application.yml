@@ -21,6 +21,9 @@ security:
     cookie-secure: ${JWT_COOKIE_SECURE:true}
     cookie-path: ${JWT_COOKIE_PATH:/api}
 
+  csrf:
+    cookie-secure: ${CSRF_COOKIE_SECURE:true}
+
   refresh-token:
     ttl: ${REFRESH_TOKEN_TTL:7d}
     cookie-secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}

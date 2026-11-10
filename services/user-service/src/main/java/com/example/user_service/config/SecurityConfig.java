@@ -5,7 +5,8 @@ import com.example.user_service.security.AccessTokenCookieService;
 import com.example.user_service.security.CookieBearerTokenResolver;
 import com.example.user_service.security.CsrfCookieFilter;
 import com.example.user_service.security.RefreshTokenCookieService;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.RequiredArgsConstructor;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -26,6 +27,8 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.util.WebUtils;
 
 @Configuration
+@RequiredArgsConstructor
+@EnableConfigurationProperties(CsrfProperties.class)
 public class SecurityConfig {
 
     private static final PathPatternRequestMatcher.Builder PATHS = PathPatternRequestMatcher.withDefaults();
@@ -34,6 +37,7 @@ public class SecurityConfig {
             PATHS.matcher(HttpMethod.POST, "/auth/login"),
             PATHS.matcher(HttpMethod.POST, "/auth/register"),
             PATHS.matcher(HttpMethod.POST, "/auth/refresh-token"),
+            PATHS.matcher(HttpMethod.POST, "/auth/logout"),
             PATHS.matcher(HttpMethod.GET, "/.well-known/jwks.json")
     );
 
@@ -41,8 +45,7 @@ public class SecurityConfig {
             WebUtils.getCookie(request, AccessTokenCookieService.COOKIE_NAME) != null
                     || WebUtils.getCookie(request, RefreshTokenCookieService.COOKIE_NAME) != null;
 
-    @Value("${security.jwt.cookie-secure}")
-    private boolean cookieSecure;
+    private final CsrfProperties csrfProperties;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -72,7 +75,7 @@ public class SecurityConfig {
         CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
         repository.setCookieCustomizer(cookie -> cookie
                 .path("/")
-                .secure(cookieSecure));
+                .secure(csrfProperties.cookieSecure()));
         return repository;
     }
 

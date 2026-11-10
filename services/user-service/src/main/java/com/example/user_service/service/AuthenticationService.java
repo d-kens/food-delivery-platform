@@ -59,7 +59,7 @@ public class AuthenticationService {
         String accessToken = jwtService.generateToken(user);
         String refreshToken = refreshTokenService.createFor(user);
 
-        return new LoginResult(userMapper.toAuthResponse(user), accessToken, refreshToken);
+        return new LoginResult(userMapper.toUserResponse(user), accessToken, refreshToken);
     }
 
     public RefreshResult refreshToken(final String refreshToken) {
@@ -76,6 +76,12 @@ public class AuthenticationService {
         }
 
         String accessToken = jwtService.generateToken(user);
-        return new RefreshResult(userMapper.toAuthResponse(user), accessToken);
+        return new RefreshResult(userMapper.toUserResponse(user), accessToken);
+    }
+
+    public void logout(final String refreshToken) {
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            refreshTokenService.revoke(refreshToken);
+        }
     }
 }

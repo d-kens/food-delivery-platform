@@ -1,5 +1,5 @@
 import { IMAGE_LOADER, ImageLoaderConfig } from '@angular/common';
-import { provideHttpClient, withFetch } from '@angular/common/http';
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import {
   ApplicationConfig,
   inject,
@@ -9,6 +9,7 @@ import {
 import { provideRouter, withInMemoryScrolling } from '@angular/router';
 import { provideNgIconsConfig } from '@ng-icons/core';
 import { routes } from './app.routes';
+import { authRefreshInterceptor } from './core/auth/auth-refresh.interceptor';
 import { AuthService } from './core/auth/auth.service';
 
 const unsplashLoader = ({ src, width }: ImageLoaderConfig) =>
@@ -21,7 +22,7 @@ export const appConfig: ApplicationConfig = {
       routes,
       withInMemoryScrolling({ anchorScrolling: 'enabled', scrollPositionRestoration: 'enabled' }),
     ),
-    provideHttpClient(withFetch()),
+    provideHttpClient(withFetch(), withInterceptors([authRefreshInterceptor])),
     provideAppInitializer(() => {
       inject(AuthService).restoreSession().subscribe();
     }),

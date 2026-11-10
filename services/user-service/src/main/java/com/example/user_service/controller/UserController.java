@@ -1,6 +1,6 @@
 package com.example.user_service.controller;
 
-import com.example.user_service.dto.AuthResponseDto;
+import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -19,7 +19,7 @@ public class UserController {
     private final UserService userService;
 
     @GetMapping("me")
-    public AuthResponseDto me(@AuthenticationPrincipal final Jwt jwt) {
+    public UserResponseDto me(@AuthenticationPrincipal final Jwt jwt) {
         return userService.getCurrentUser(UUID.fromString(jwt.getSubject()));
     }
 }

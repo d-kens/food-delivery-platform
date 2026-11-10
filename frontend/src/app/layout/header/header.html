@@ -27,6 +27,13 @@
           </span>
           Hi, {{ user.firstName }}
         </span>
+        <button
+          type="button"
+          class="text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-900"
+          (click)="logout()"
+        >
+          Log out
+        </button>
       } @else {
         <a routerLink="/login" class="text-sm font-medium text-zinc-700 transition-colors hover:text-zinc-900">Log in</a>
         <a
@@ -190,6 +197,13 @@
             <span class="block truncate text-sm font-semibold text-zinc-900">{{ user.firstName }} {{ user.lastName }}</span>
             <span class="block truncate text-xs text-zinc-500">{{ user.email }}</span>
           </span>
+          <button
+            type="button"
+            class="ml-auto h-10 shrink-0 rounded-lg border border-zinc-300 px-3 text-sm font-semibold text-zinc-800 transition-colors hover:bg-zinc-50"
+            (click)="logout()"
+          >
+            Log out
+          </button>
         </div>
       } @else {
         <div class="grid grid-cols-2 gap-3">

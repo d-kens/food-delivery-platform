@@ -39,11 +39,13 @@ const DESKTOP_BREAKPOINT = 768;
 })
 export class Header {
   private readonly document = inject(DOCUMENT);
+  private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
   private readonly menuToggle = viewChild.required<ElementRef<HTMLButtonElement>>('menuToggle');
   private readonly mobileMenu = viewChild<ElementRef<HTMLElement>>('mobileMenu');
 
   protected readonly menuOpen = signal(false);
-  protected readonly user = inject(AuthService).user;
+  protected readonly user = this.auth.user;
   protected readonly initials = computed(() => {
     const user = this.user();
     return user ? `${user.firstName[0] ?? ''}${user.lastName[0] ?? ''}`.toUpperCase() : '';
@@ -82,8 +84,8 @@ export class Header {
     effect(() => this.mobileMenu()?.nativeElement.focus());
     inject(DestroyRef).onDestroy(() => (this.document.body.style.overflow = ''));
 
-    inject(Router)
-      .events.pipe(
+    this.router.events
+      .pipe(
         filter((event) => event instanceof NavigationEnd),
         takeUntilDestroyed(),
       )
@@ -106,6 +108,11 @@ export class Header {
     if (restoreFocus) {
       this.menuToggle().nativeElement.focus();
     }
+  }
+
+  protected logout(): void {
+    this.closeMenu();
+    this.auth.logout().subscribe(() => this.router.navigateByUrl('/'));
   }
 
   protected onSearch(event: Event): void {
