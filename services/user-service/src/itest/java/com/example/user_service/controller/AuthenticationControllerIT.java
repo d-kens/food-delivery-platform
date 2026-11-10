@@ -6,6 +6,7 @@ import com.example.user_service.common.UserStatus;
 import com.example.user_service.repository.RefreshTokenRepository;
 import com.example.user_service.repository.UserRepository;
 import com.jayway.jsonpath.JsonPath;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +37,7 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
 
     private static final String REGISTER_URL = "/auth/register";
     private static final String LOGIN_URL = "/auth/login";
+    private static final String REFRESH_TOKEN_URL = "/auth/refresh-token";
     private static final String EMAIL = "jane.doe@gmail.com";
     private static final String PASSWORD = "Str0ngPassword!";
     private static final Duration REFRESH_TOKEN_TTL = Duration.ofDays(7);
@@ -225,6 +227,128 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
                 .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
 
         assertThat(refreshTokenRepository.count()).isZero();
+    }
+
+    @Test
+    void refreshToken_returnsNewAccessToken_whenRefreshTokenIsValid() throws Exception {
+        registerUser();
+        var user = userRepository.findByEmail(EMAIL).orElseThrow();
+        String refreshToken = loginAndGetRefreshToken();
+
+        var body = mockMvc.perform(post(REFRESH_TOKEN_URL)
+                        .cookie(new Cookie("refresh_token", refreshToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value(user.getId().toString()))
+                .andExpect(jsonPath("$.email").value(EMAIL))
+                .andExpect(jsonPath("$.firstName").value("Jane"))
+                .andExpect(jsonPath("$.lastName").value("Doe"))
+                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String accessToken = JsonPath.read(body, "$.accessToken");
+        var jwt = jwtDecoder.decode(accessToken);
+
+        assertThat(jwt.getSubject()).isEqualTo(user.getId().toString());
+        assertThat(jwt.getClaimAsStringList("roles")).containsExactly("USER");
+        assertThat(jwt.getExpiresAt()).isAfter(jwt.getIssuedAt());
+    }
+
+    @Test
+    void refreshToken_doesNotRotateRefreshToken() throws Exception {
+        registerUser();
+        String refreshToken = loginAndGetRefreshToken();
+
+        mockMvc.perform(post(REFRESH_TOKEN_URL)
+                        .cookie(new Cookie("refresh_token", refreshToken)))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
+
+        assertThat(refreshTokenRepository.findAll())
+                .singleElement()
+                .satisfies(token -> {
+                    assertThat(token.getTokenHash()).isEqualTo(sha256Hex(refreshToken));
+                    assertThat(token.getRevokedAt()).isNull();
+                });
+    }
+
+    @Test
+    void refreshToken_returnsUnauthorized_whenCookieIsMissing() throws Exception {
+        mockMvc.perform(post(REFRESH_TOKEN_URL))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.title").value("Invalid Refresh Token"))
+                .andExpect(jsonPath("$.detail").value("Invalid or expired refresh token"))
+                .andExpect(jsonPath("$.accessToken").doesNotExist());
+    }
+
+    @Test
+    void refreshToken_returnsUnauthorized_whenTokenIsUnknown() throws Exception {
+        registerUser();
+        loginAndGetRefreshToken();
+
+        mockMvc.perform(post(REFRESH_TOKEN_URL)
+                        .cookie(new Cookie("refresh_token", "unknown-token")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.title").value("Invalid Refresh Token"))
+                .andExpect(jsonPath("$.accessToken").doesNotExist());
+    }
+
+    @Test
+    void refreshToken_returnsUnauthorized_whenTokenIsExpired() throws Exception {
+        registerUser();
+        String refreshToken = loginAndGetRefreshToken();
+        var storedToken = refreshTokenRepository.findAll().getFirst();
+        storedToken.setExpiresAt(Instant.now().minusSeconds(60));
+        refreshTokenRepository.save(storedToken);
+
+        mockMvc.perform(post(REFRESH_TOKEN_URL)
+                        .cookie(new Cookie("refresh_token", refreshToken)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.title").value("Invalid Refresh Token"))
+                .andExpect(jsonPath("$.accessToken").doesNotExist());
+    }
+
+    @Test
+    void refreshToken_returnsUnauthorized_whenTokenIsRevoked() throws Exception {
+        registerUser();
+        String refreshToken = loginAndGetRefreshToken();
+        var storedToken = refreshTokenRepository.findAll().getFirst();
+        storedToken.setRevokedAt(Instant.now());
+        refreshTokenRepository.save(storedToken);
+
+        mockMvc.perform(post(REFRESH_TOKEN_URL)
+                        .cookie(new Cookie("refresh_token", refreshToken)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.title").value("Invalid Refresh Token"))
+                .andExpect(jsonPath("$.accessToken").doesNotExist());
+    }
+
+    @Test
+    void refreshToken_returnsForbidden_whenUserIsSuspended() throws Exception {
+        registerUser();
+        String refreshToken = loginAndGetRefreshToken();
+        var user = userRepository.findByEmail(EMAIL).orElseThrow();
+        user.setStatus(UserStatus.SUSPENDED);
+        userRepository.save(user);
+
+        mockMvc.perform(post(REFRESH_TOKEN_URL)
+                        .cookie(new Cookie("refresh_token", refreshToken)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.title").value("Account Suspended"))
+                .andExpect(jsonPath("$.accessToken").doesNotExist());
+    }
+
+    private String loginAndGetRefreshToken() throws Exception {
+        String setCookie = mockMvc.perform(post(LOGIN_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson(EMAIL, PASSWORD)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getHeader(HttpHeaders.SET_COOKIE);
+        return refreshTokenFrom(setCookie);
     }
 
     private String refreshTokenFrom(String setCookie) {
