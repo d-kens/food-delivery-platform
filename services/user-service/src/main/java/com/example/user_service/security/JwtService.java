@@ -1,5 +1,6 @@
 package com.example.user_service.security;
 
+import com.example.user_service.common.Role;
 import com.example.user_service.config.JwtProperties;
 import com.example.user_service.entity.User;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +28,7 @@ public class JwtService {
                 .subject(user.getId().toString())
                 .issuedAt(now)
                 .expiresAt(now.plus(jwtProperties.expiration()))
-                .claim("roles", List.of(user.getRole().name()))
+                .claim("roles", roleNames(user))
                 .build();
 
         JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256)
@@ -35,6 +36,10 @@ public class JwtService {
                 .build();
 
         return jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
+    }
+
+    private List<String> roleNames(User user) {
+        return user.getRoles().stream().map(Role::name).sorted().toList();
     }
 
 }

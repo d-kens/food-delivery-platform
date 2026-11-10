@@ -23,7 +23,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -54,7 +56,7 @@ class AuthenticationServiceTest {
                 request.phoneNumber(),
                 request.firstName(),
                 request.lastName(),
-                "USER",
+                List.of("USER"),
                 "ACTIVE",
                 Instant.now()
         );
@@ -86,7 +88,7 @@ class AuthenticationServiceTest {
 
         authenticationService.register(request);
 
-        assertEquals(Role.USER, user.getRole());
+        assertEquals(Set.of(Role.USER), user.getRoles());
         assertEquals(encodedPassword, user.getPasswordHash());
         assertEquals(request.phoneNumber(), user.getPhoneNumber());
         verify(passwordEncoder).encode(request.password());
@@ -150,7 +152,7 @@ class AuthenticationServiceTest {
                 user.getFirstName(),
                 user.getLastName(),
                 user.getEmail(),
-                user.getRole().toString()
+                List.of("USER")
         );
         when(userMapper.toAuthResponse(user, "access-token")).thenReturn(expectedResponse);
 
@@ -222,7 +224,7 @@ class AuthenticationServiceTest {
                 user.getFirstName(),
                 user.getLastName(),
                 user.getEmail(),
-                user.getRole().toString()
+                List.of("USER")
         );
 
         when(refreshTokenService.validate("raw-token")).thenReturn(storedToken);
@@ -281,7 +283,7 @@ class AuthenticationServiceTest {
                 .passwordHash("encoded-password")
                 .firstName("Jane")
                 .lastName("Doe")
-                .role(Role.USER)
+                .roles(Set.of(Role.USER))
                 .status(UserStatus.ACTIVE)
                 .build();
     }

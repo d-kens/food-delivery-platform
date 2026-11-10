@@ -26,8 +26,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -85,7 +87,7 @@ class AuthenticationControllerTest {
                 "0707127309",
                 "Jane",
                 "Doe",
-                "USER",
+                List.of("USER"),
                 "ACTIVE",
                 Instant.parse("2026-01-01T10:00:00Z")
         ));
@@ -96,7 +98,7 @@ class AuthenticationControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(id.toString()))
                 .andExpect(jsonPath("$.email").value("jane.doe@gmail.com"))
-                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.roles", contains("USER")))
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
     }
 
@@ -174,7 +176,7 @@ class AuthenticationControllerTest {
                                 "Jane",
                                 "Doe",
                                 "jane.doe@gmail.com",
-                                "USER"
+                                List.of("USER")
                         ),
                         "refresh-token"
                 )
@@ -196,7 +198,7 @@ class AuthenticationControllerTest {
                 .andExpect(jsonPath("$.accessToken").value("access-token"))
                 .andExpect(jsonPath("$.userId").value(userId))
                 .andExpect(jsonPath("$.email").value("jane.doe@gmail.com"))
-                .andExpect(jsonPath("$.role").value("USER"));
+                .andExpect(jsonPath("$.roles", contains("USER")));
     }
 
     @Test
@@ -255,7 +257,7 @@ class AuthenticationControllerTest {
                 "Jane",
                 "Doe",
                 "jane.doe@gmail.com",
-                "USER"
+                List.of("USER")
         );
 
         when(authenticationService.refreshToken(refreshToken)).thenReturn(authResponse);
@@ -266,7 +268,7 @@ class AuthenticationControllerTest {
                 .andExpect(jsonPath("$.accessToken").value("access-token"))
                 .andExpect(jsonPath("$.userId").value(userId))
                 .andExpect(jsonPath("$.email").value("jane.doe@gmail.com"))
-                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.roles", contains("USER")))
                 .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE))
                 .andExpect(jsonPath("$.refreshToken").doesNotExist());
     }

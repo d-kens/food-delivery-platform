@@ -26,6 +26,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -72,7 +73,7 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.id").isNotEmpty())
                 .andExpect(jsonPath("$.email").value(EMAIL))
                 .andExpect(jsonPath("$.phoneNumber").value("0707127309"))
-                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.roles", contains("USER")))
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.createdAt").isNotEmpty())
                 .andExpect(jsonPath("$.password").doesNotExist())
@@ -82,7 +83,7 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
                 .singleElement()
                 .satisfies(user -> {
                     assertThat(user.getEmail()).isEqualTo(EMAIL);
-                    assertThat(user.getRole()).isEqualTo(Role.USER);
+                    assertThat(user.getRoles()).containsExactly(Role.USER);
                     assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
                     assertThat(user.getPasswordHash()).isNotEqualTo(PASSWORD);
                     assertThat(passwordEncoder.matches(PASSWORD, user.getPasswordHash())).isTrue();
@@ -118,7 +119,7 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.email").value(EMAIL))
                 .andExpect(jsonPath("$.firstName").value("Jane"))
                 .andExpect(jsonPath("$.lastName").value("Doe"))
-                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.roles", contains("USER")))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
@@ -242,7 +243,7 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.email").value(EMAIL))
                 .andExpect(jsonPath("$.firstName").value("Jane"))
                 .andExpect(jsonPath("$.lastName").value("Doe"))
-                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.roles", contains("USER")))
                 .andExpect(jsonPath("$.refreshToken").doesNotExist())
                 .andReturn()
                 .getResponse()

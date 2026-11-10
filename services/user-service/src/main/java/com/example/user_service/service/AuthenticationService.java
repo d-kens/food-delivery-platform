@@ -19,6 +19,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.EnumSet;
+
 @Service
 @RequiredArgsConstructor
 public class AuthenticationService {
@@ -45,7 +47,7 @@ public class AuthenticationService {
         User user = userMapper.toUserEntity(request);
         user.setPhoneNumber(phoneNumber);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
-        user.setRole(Role.USER);
+        user.setRoles(EnumSet.of(Role.USER));
 
         userRepository.save(user);
 

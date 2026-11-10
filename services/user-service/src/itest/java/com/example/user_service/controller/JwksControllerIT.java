@@ -17,6 +17,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.Set;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -52,7 +54,7 @@ class JwksControllerIT extends AbstractIntegrationTest {
                 .firstName("Jane")
                 .lastName("Doe")
                 .passwordHash(passwordEncoder.encode(PASSWORD))
-                .role(Role.USER)
+                .roles(Set.of(Role.USER))
                 .build());
 
         String accessToken = login();

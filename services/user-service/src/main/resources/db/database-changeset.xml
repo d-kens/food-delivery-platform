@@ -79,4 +79,41 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="003-move-role-to-user-roles-table" author="d-kens">
+        <createTable tableName="user_roles">
+            <column name="user_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="role" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey tableName="user_roles" columnNames="user_id, role" constraintName="pk_user_roles"/>
+
+        <addForeignKeyConstraint baseTableName="user_roles" baseColumnNames="user_id" constraintName="fk_user_roles_user"
+                                 referencedTableName="users"
+                                 referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+
+        <sql>INSERT INTO user_roles (user_id, role) SELECT id, role FROM users</sql>
+
+        <dropColumn tableName="users" columnName="role"/>
+
+        <rollback>
+            <addColumn tableName="users">
+                <column name="role" type="VARCHAR(20)" defaultValue="USER">
+                    <constraints nullable="false"/>
+                </column>
+            </addColumn>
+            <sql>
+                UPDATE users u SET role = CASE
+                    WHEN EXISTS (SELECT 1 FROM user_roles r WHERE r.user_id = u.id AND r.role = 'ADMIN') THEN 'ADMIN'
+                    ELSE 'USER'
+                END
+            </sql>
+            <dropTable tableName="user_roles"/>
+        </rollback>
+    </changeSet>
+
 </databaseChangeLog>

@@ -9,6 +9,8 @@ import com.example.user_service.common.UserStatus;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -40,7 +42,7 @@ class UserMapperTest {
         assertThat(user.getId()).isNull();
         assertThat(user.getPhoneNumber()).isNull();
         assertThat(user.getPasswordHash()).isNull();
-        assertThat(user.getRole()).isNull();
+        assertThat(user.getRoles()).isEmpty();
         assertThat(user.getCreatedAt()).isNull();
         assertThat(user.getUpdatedAt()).isNull();
     }
@@ -55,14 +57,14 @@ class UserMapperTest {
     void toRegistrationResponse_mapsAllFieldsAndEnumNames() {
         var response = userMapper.toRegistrationResponse(user());
         assertThat(response).isEqualTo(new RegistrationResponseDto(
-                ID, EMAIL, PHONE_NUMBER, FIRST_NAME, LAST_NAME, "USER", "ACTIVE", CREATED_AT));
+                ID, EMAIL, PHONE_NUMBER, FIRST_NAME, LAST_NAME, List.of("RIDER", "USER"), "ACTIVE", CREATED_AT));
     }
 
     @Test
     void toAuthResponse_mapsUserFieldsAndAccessToken() {
         var response = userMapper.toAuthResponse(user(), "access-token");
         assertThat(response).isEqualTo(new AuthResponseDto(
-                "access-token", ID.toString(), FIRST_NAME, LAST_NAME, EMAIL, "USER"));
+                "access-token", ID.toString(), FIRST_NAME, LAST_NAME, EMAIL, List.of("RIDER", "USER")));
     }
 
     private RegistrationRequestDto registrationRequest(String phoneNumber) {
@@ -78,7 +80,7 @@ class UserMapperTest {
                 .firstName(FIRST_NAME)
                 .lastName(LAST_NAME)
                 .passwordHash("hashed")
-                .role(Role.USER)
+                .roles(Set.of(Role.USER, Role.RIDER))
                 .status(UserStatus.ACTIVE)
                 .createdAt(CREATED_AT)
                 .build();

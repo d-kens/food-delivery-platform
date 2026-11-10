@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -57,7 +59,7 @@ class UserRepositoryTest extends AbstractIntegrationTest {
                 .firstName("Jane")
                 .lastName("Doe")
                 .passwordHash("hashed")
-                .role(Role.USER)
+                .roles(Set.of(Role.USER))
                 .build();
     }
 }
