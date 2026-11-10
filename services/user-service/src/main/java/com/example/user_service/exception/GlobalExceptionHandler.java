@@ -49,13 +49,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
-    @ExceptionHandler(PhoneNumberAlreadyExistsException.class)
-    public ProblemDetail handlePhoneNumberAlreadyExists(PhoneNumberAlreadyExistsException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
-        problem.setTitle("Phone number already exists");
-        return problem;
-    }
-
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {

@@ -7,7 +7,6 @@ import java.util.UUID;
 public record RegistrationResponseDto(
         UUID id,
         String email,
-        String phoneNumber,
         String firstName,
         String lastName,
         List<String> roles,

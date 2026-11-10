@@ -19,7 +19,6 @@ class UserMapperTest {
 
     private static final UUID ID = UUID.randomUUID();
     private static final String EMAIL = "jane.doe@gmail.com";
-    private static final String PHONE_NUMBER = "0707127309";
     private static final String FIRST_NAME = "Jane";
     private static final String LAST_NAME = "Doe";
     private static final Instant CREATED_AT = Instant.parse("2026-01-01T10:00:00Z");
@@ -28,7 +27,7 @@ class UserMapperTest {
 
     @Test
     void toUserEntity_mapsProfileFields() {
-        var user = userMapper.toUserEntity(registrationRequest(PHONE_NUMBER));
+        var user = userMapper.toUserEntity(registrationRequest());
 
         assertThat(user.getEmail()).isEqualTo(EMAIL);
         assertThat(user.getFirstName()).isEqualTo(FIRST_NAME);
@@ -37,7 +36,7 @@ class UserMapperTest {
 
     @Test
     void toUserEntity_leavesFieldsSetByServiceOrDatabaseUnset() {
-        var user = userMapper.toUserEntity(registrationRequest(PHONE_NUMBER));
+        var user = userMapper.toUserEntity(registrationRequest());
 
         assertThat(user.getId()).isNull();
         assertThat(user.getPhoneNumber()).isNull();
@@ -49,7 +48,7 @@ class UserMapperTest {
 
     @Test
     void toUserEntity_defaultsStatusToActive() {
-        var user = userMapper.toUserEntity(registrationRequest(null));
+        var user = userMapper.toUserEntity(registrationRequest());
         assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
     }
 
@@ -57,7 +56,7 @@ class UserMapperTest {
     void toRegistrationResponse_mapsAllFieldsAndEnumNames() {
         var response = userMapper.toRegistrationResponse(user());
         assertThat(response).isEqualTo(new RegistrationResponseDto(
-                ID, EMAIL, PHONE_NUMBER, FIRST_NAME, LAST_NAME, List.of("RIDER", "USER"), "ACTIVE", CREATED_AT));
+                ID, EMAIL, FIRST_NAME, LAST_NAME, List.of("RIDER", "USER"), "ACTIVE", CREATED_AT));
     }
 
     @Test
@@ -67,8 +66,8 @@ class UserMapperTest {
                 "access-token", ID.toString(), FIRST_NAME, LAST_NAME, EMAIL, List.of("RIDER", "USER")));
     }
 
-    private RegistrationRequestDto registrationRequest(String phoneNumber) {
-        return new RegistrationRequestDto(EMAIL, "T3st@12367", FIRST_NAME, LAST_NAME, phoneNumber);
+    private RegistrationRequestDto registrationRequest() {
+        return new RegistrationRequestDto(EMAIL, "T3st@12367", FIRST_NAME, LAST_NAME);
     }
 
     private User user() {
@@ -76,7 +75,6 @@ class UserMapperTest {
                 .builder()
                 .id(ID)
                 .email(EMAIL)
-                .phoneNumber(PHONE_NUMBER)
                 .firstName(FIRST_NAME)
                 .lastName(LAST_NAME)
                 .passwordHash("hashed")

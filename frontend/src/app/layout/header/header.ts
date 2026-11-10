@@ -1,10 +1,12 @@
 import { Component, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { Icon } from '../../shared/icon/icon';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { heroBars3, heroXMark } from '@ng-icons/heroicons/outline';
 
 @Component({
   selector: 'app-header',
-  imports: [RouterLink, Icon],
+  imports: [RouterLink, NgIcon],
+  viewProviders: [provideIcons({ heroBars3, heroXMark })],
   templateUrl: './header.html',
 })
 export class Header {

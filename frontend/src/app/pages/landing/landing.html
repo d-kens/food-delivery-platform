@@ -15,7 +15,7 @@
       <label for="address" class="sr-only">Delivery address</label>
       <div class="flex flex-col gap-2 sm:flex-row">
         <div class="relative flex-1">
-          <app-icon name="map-pin" class="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-zinc-400" />
+          <ng-icon name="heroMapPin" size="20" class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
           <input
             #address
             id="address"
@@ -128,7 +128,7 @@
     <h2 class="font-display text-2xl font-bold tracking-tight sm:text-3xl">Popular near you</h2>
     <a href="#" class="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-700 hover:text-zinc-900">
       See all
-      <app-icon name="arrow-right" class="size-4" />
+      <ng-icon name="heroArrowRight" size="16" />
     </a>
   </div>
 
@@ -156,10 +156,9 @@
             [attr.aria-pressed]="isFavourite(restaurant)"
             (click)="toggleFavourite(restaurant)"
           >
-            <app-icon
-              name="heart"
-              [filled]="isFavourite(restaurant)"
-              class="size-5"
+            <ng-icon
+              [name]="isFavourite(restaurant) ? 'heroHeartSolid' : 'heroHeart'"
+              size="20"
               [class]="isFavourite(restaurant) ? 'text-brand-500' : 'text-zinc-700'"
             />
           </button>
@@ -170,7 +169,7 @@
               </a>
             </h3>
             <span class="flex shrink-0 items-center gap-1 text-sm">
-              <app-icon name="star" [filled]="true" class="size-4 text-zinc-900" />
+              <ng-icon name="heroStarSolid" size="16" class="text-zinc-900" />
               <span class="font-medium">{{ restaurant.rating }}</span>
               <span class="text-zinc-500">({{ restaurant.reviews }})</span>
             </span>
@@ -226,7 +225,7 @@
         class="mt-6 inline-flex w-fit items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100"
       >
         Add your restaurant
-        <app-icon name="arrow-right" class="size-4" />
+        <ng-icon name="heroArrowRight" size="16" />
       </a>
     </div>
 
@@ -247,7 +246,7 @@
         class="mt-6 inline-flex w-fit items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100"
       >
         Start riding
-        <app-icon name="arrow-right" class="size-4" />
+        <ng-icon name="heroArrowRight" size="16" />
       </a>
     </div>
   </div>
@@ -270,7 +269,7 @@
             href="#"
             class="inline-flex items-center gap-3 rounded-xl border border-white/15 bg-white/5 px-5 py-3 text-white transition-colors hover:bg-white/10"
           >
-            <app-icon name="phone" class="size-6 text-white/80" />
+            <ng-icon name="heroDevicePhoneMobile" size="24" class="text-white/80" />
             <span class="text-left leading-tight">
               <span class="block text-[11px] text-white/60">{{ store.caption }}</span>
               <span class="block text-sm font-semibold">{{ store.name }}</span>

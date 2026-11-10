@@ -45,7 +45,7 @@ class AuthenticationServiceTest {
     @InjectMocks private AuthenticationService authenticationService;
 
     @Test
-    void register_withPhoneNumber_savesUserAndReturnsResponse() {
+    void register_savesUserAndReturnsResponse() {
         var request = createRegistrationRequest();
 
         var user = createUser(request);
@@ -53,7 +53,6 @@ class AuthenticationServiceTest {
         var expectedResponse = new RegistrationResponseDto(
                 UUID.randomUUID(),
                 request.email(),
-                request.phoneNumber(),
                 request.firstName(),
                 request.lastName(),
                 List.of("USER"),
@@ -62,7 +61,6 @@ class AuthenticationServiceTest {
         );
 
         when(userRepository.existsByEmail(request.email())).thenReturn(false);
-        when(userRepository.existsByPhoneNumber(request.phoneNumber())).thenReturn(false);
         when(passwordEncoder.encode(request.password())).thenReturn("encoded-password");
         when(userMapper.toUserEntity(request)).thenReturn(user);
         when(userMapper.toRegistrationResponse(user)).thenReturn(expectedResponse);
@@ -74,7 +72,7 @@ class AuthenticationServiceTest {
     }
 
     @Test
-    void register_setsEncodedPasswordRoleAndPhoneOnSavedUser() {
+    void register_setsEncodedPasswordAndRoleOnSavedUser() {
         var request = createRegistrationRequest();
 
         var user = createUser(request);
@@ -82,7 +80,6 @@ class AuthenticationServiceTest {
         var encodedPassword = "$2b$12$L73P6R7iNqGvE16vU7/bK.7SshYg58v8q7mB2O5";
 
         when(userRepository.existsByEmail(request.email())).thenReturn(false);
-        when(userRepository.existsByPhoneNumber(request.phoneNumber())).thenReturn(false);
         when(userMapper.toUserEntity(request)).thenReturn(user);
         when(passwordEncoder.encode(request.password())).thenReturn(encodedPassword);
 
@@ -90,22 +87,9 @@ class AuthenticationServiceTest {
 
         assertEquals(Set.of(Role.USER), user.getRoles());
         assertEquals(encodedPassword, user.getPasswordHash());
-        assertEquals(request.phoneNumber(), user.getPhoneNumber());
         verify(passwordEncoder).encode(request.password());
     }
 
-
-    @Test
-    void register_withNullOrBlankPhone_savesNullPhoneAndSkipsPhoneCheck() {
-        var request = createRegistrationRequestWithoutPhoneNumber();
-        var user = createUser(request);
-
-        when(userMapper.toUserEntity(request)).thenReturn(user);
-
-        authenticationService.register(request);
-        assertNull(user.getPhoneNumber());
-        verify(userRepository, never()).existsByPhoneNumber(any());
-    }
 
     @Test
     void register_whenEmailExists_throwsEmailAlreadyExistsException() {
@@ -118,21 +102,6 @@ class AuthenticationServiceTest {
         });
 
         assertEquals("An account with this email already exists", exception.getMessage());
-        verify(userRepository, never()).save(any());
-    }
-
-    @Test
-    void register_whenPhoneExists_throwsPhoneNumberAlreadyExistsException() {
-        var request = createRegistrationRequest();
-
-        when(userRepository.existsByEmail(request.email())).thenReturn(false);
-        when(userRepository.existsByPhoneNumber(request.phoneNumber())).thenReturn(true);
-
-        var exception = assertThrows(PhoneNumberAlreadyExistsException.class, () -> {
-            authenticationService.register(request);
-        });
-
-        assertEquals("An account with this phone number already exists", exception.getMessage());
         verify(userRepository, never()).save(any());
     }
 
@@ -293,18 +262,7 @@ class AuthenticationServiceTest {
                 "jane.doe@gmail.com",
                 "T3st@12367",
                 "Jane",
-                "Doe",
-                "0707127309"
-        );
-    }
-
-    private RegistrationRequestDto createRegistrationRequestWithoutPhoneNumber() {
-        return new RegistrationRequestDto(
-                "jane.doe@gmail.com",
-                "T3st@12367",
-                "Jane",
-                "Doe",
-                null
+                "Doe"
         );
     }
 

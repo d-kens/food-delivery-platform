@@ -10,7 +10,6 @@ import com.example.user_service.entity.User;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.InvalidCredentialException;
 import com.example.user_service.exception.InvalidRefreshTokenException;
-import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
 import com.example.user_service.exception.UserSuspendedException;
 import com.example.user_service.repository.UserRepository;
 import com.example.user_service.security.JwtService;
@@ -36,16 +35,7 @@ public class AuthenticationService {
             throw new EmailAlreadyExistsException("An account with this email already exists");
         }
 
-        String phoneNumber = (request.phoneNumber() == null || request.phoneNumber().isBlank())
-                ? null
-                : request.phoneNumber();
-
-        if (phoneNumber != null && userRepository.existsByPhoneNumber(phoneNumber)) {
-            throw new PhoneNumberAlreadyExistsException("An account with this phone number already exists");
-        }
-
         User user = userMapper.toUserEntity(request);
-        user.setPhoneNumber(phoneNumber);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRoles(EnumSet.of(Role.USER));
 

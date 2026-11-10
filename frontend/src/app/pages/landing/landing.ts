@@ -1,7 +1,9 @@
 import { NgOptimizedImage } from '@angular/common';
 import { Component, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { Icon } from '../../shared/icon/icon';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { heroArrowRight, heroDevicePhoneMobile, heroHeart, heroMapPin } from '@ng-icons/heroicons/outline';
+import { heroHeartSolid, heroStarSolid } from '@ng-icons/heroicons/solid';
 
 interface Category {
   name: string;
@@ -28,7 +30,8 @@ interface Step {
 // Images are Unsplash photo ids, resolved by the IMAGE_LOADER in app.config.ts.
 @Component({
   selector: 'app-landing',
-  imports: [RouterLink, NgOptimizedImage, Icon],
+  imports: [RouterLink, NgOptimizedImage, NgIcon],
+  viewProviders: [provideIcons({ heroArrowRight, heroDevicePhoneMobile, heroHeart, heroMapPin, heroHeartSolid, heroStarSolid })],
   templateUrl: './landing.html',
 })
 export class Landing {

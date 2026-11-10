@@ -1,0 +1,33 @@
+<div class="grid min-h-dvh lg:grid-cols-2">
+  <div class="flex flex-col px-4 py-6 sm:px-8 lg:px-12">
+    <a routerLink="/" class="w-fit font-display text-2xl font-bold tracking-tight" aria-label="Keroma home">
+      keroma<span class="text-brand-500">.</span>
+    </a>
+
+    <main class="flex flex-1 items-center justify-center py-6">
+      <div class="w-full max-w-sm">
+        <router-outlet />
+      </div>
+    </main>
+  </div>
+
+  <div class="relative hidden p-3 lg:block">
+    <div class="relative isolate h-full overflow-hidden rounded-3xl">
+      <img
+        ngSrc="photo-1555939594-58d7cb561ad1"
+        alt="A grill platter of skewers and vegetables"
+        fill
+        priority
+        sizes="50vw"
+        class="-z-10 object-cover"
+      />
+      <div class="absolute inset-0 -z-10 bg-linear-to-t from-black/80 via-black/20 to-transparent"></div>
+      <div class="absolute inset-x-0 bottom-0 p-12">
+        <p class="max-w-md font-display text-4xl font-bold leading-tight tracking-tight text-balance text-white">
+          The restaurants you love, delivered across Nairobi.
+        </p>
+        <p class="mt-4 text-white/80">Hot meals at your door, usually in under 30 minutes.</p>
+      </div>
+    </div>
+  </div>
+</div>

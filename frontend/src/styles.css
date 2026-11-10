@@ -22,6 +22,29 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Tailwind v4 resets buttons to cursor: default; bring back the pointer. */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 body {
   @apply bg-cream font-sans text-zinc-900 antialiased;
+}
+
+/* Shared form controls for the auth pages (and later, checkout/profile). */
+@layer components {
+  .form-label {
+    @apply mb-1 block text-sm font-medium text-zinc-800;
+  }
+
+  .form-input {
+    @apply block h-12 w-full rounded-lg border border-zinc-300 bg-white px-3.5 text-[15px] text-zinc-900 transition-colors placeholder:text-zinc-400 hover:border-zinc-400 focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 focus:outline-none aria-invalid:border-red-500 aria-invalid:focus:ring-red-500;
+  }
+
+  .btn-primary {
+    @apply inline-flex h-12 w-full items-center justify-center rounded-lg bg-zinc-900 px-4 text-sm font-semibold text-white transition hover:bg-zinc-700 active:scale-[0.99] active:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 disabled:cursor-not-allowed disabled:opacity-60;
+  }
 }

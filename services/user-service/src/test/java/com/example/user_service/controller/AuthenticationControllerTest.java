@@ -7,7 +7,6 @@ import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.InvalidCredentialException;
 import com.example.user_service.exception.InvalidRefreshTokenException;
-import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
 import com.example.user_service.exception.UserSuspendedException;
 import com.example.user_service.config.SecurityConfig;
 import com.example.user_service.security.RefreshTokenCookieService;
@@ -60,8 +59,7 @@ class AuthenticationControllerTest {
               "email": "jane.doe@gmail.com",
               "password": "T3st@12367",
               "firstName": "Jane",
-              "lastName": "Doe",
-              "phoneNumber": "0707127309"
+              "lastName": "Doe"
             }
             """;
 
@@ -84,7 +82,6 @@ class AuthenticationControllerTest {
         when(authenticationService.register(any(RegistrationRequestDto.class))).thenReturn(new RegistrationResponseDto(
                 id,
                 "jane.doe@gmail.com",
-                "0707127309",
                 "Jane",
                 "Doe",
                 List.of("USER"),
@@ -137,19 +134,6 @@ class AuthenticationControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.title").value("Email already exists"))
                 .andExpect(jsonPath("$.detail").value("An account with this email already exists"));
-    }
-
-    @Test
-    void register_returnsConflict_whenPhoneNumberAlreadyExists() throws Exception {
-        when(authenticationService.register(any(RegistrationRequestDto.class)))
-                .thenThrow(new PhoneNumberAlreadyExistsException("An account with this phone number already exists"));
-
-        mockMvc.perform(post(REGISTER_URL)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(VALID_REQUEST))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.title").value("Phone number already exists"))
-                .andExpect(jsonPath("$.detail").value("An account with this phone number already exists"));
     }
 
     @Test

@@ -68,11 +68,11 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
     void register_savesUserAndReturnsResponse() throws Exception {
         mockMvc.perform(post(REGISTER_URL)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(registrationJson(EMAIL, "0707127309")))
+                        .content(registrationJson(EMAIL)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").isNotEmpty())
                 .andExpect(jsonPath("$.email").value(EMAIL))
-                .andExpect(jsonPath("$.phoneNumber").value("0707127309"))
+                .andExpect(jsonPath("$.phoneNumber").doesNotExist())
                 .andExpect(jsonPath("$.roles", contains("USER")))
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.createdAt").isNotEmpty())
@@ -94,12 +94,12 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
     void register_returnsConflict_whenEmailAlreadyExists() throws Exception {
         mockMvc.perform(post(REGISTER_URL)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(registrationJson(EMAIL, "0707127309")))
+                        .content(registrationJson(EMAIL)))
                 .andExpect(status().isCreated());
 
         mockMvc.perform(post(REGISTER_URL)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(registrationJson(EMAIL, "0711000000")))
+                        .content(registrationJson(EMAIL)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.title").value("Email already exists"));
 
@@ -364,7 +364,7 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
     private void registerUser() throws Exception {
         mockMvc.perform(post(REGISTER_URL)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(registrationJson(EMAIL, "0707127309")))
+                        .content(registrationJson(EMAIL)))
                 .andExpect(status().isCreated());
     }
 
@@ -377,15 +377,14 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
                 """.formatted(email, password);
     }
 
-    private String registrationJson(String email, String phoneNumber) {
+    private String registrationJson(String email) {
         return """
                 {
                   "email": "%s",
                   "password": "%s",
                   "firstName": "Jane",
-                  "lastName": "Doe",
-                  "phoneNumber": "%s"
+                  "lastName": "Doe"
                 }
-                """.formatted(email, PASSWORD, phoneNumber);
+                """.formatted(email, PASSWORD);
     }
 }
