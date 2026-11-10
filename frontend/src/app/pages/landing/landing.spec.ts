@@ -1,3 +1,4 @@
+import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Landing } from './landing';
@@ -32,5 +33,19 @@ describe('Landing', () => {
     expect(compiled.querySelectorAll('#how-it-works li').length).toBe(3);
     expect(compiled.querySelector('#partners')?.textContent).toContain('Add your restaurant');
     expect(compiled.querySelector('#partners')?.textContent).toContain('Start riding');
+  });
+
+  it('should toggle a restaurant as favourite', async () => {
+    const button = compiled.querySelector<HTMLButtonElement>('#restaurants article button')!;
+    expect(button.getAttribute('aria-pressed')).toBe('false');
+
+    button.click();
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+    expect(button.getAttribute('aria-label')).toBe('Remove Urban Grill House from favourites');
+
+    button.click();
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(button.getAttribute('aria-pressed')).toBe('false');
   });
 });

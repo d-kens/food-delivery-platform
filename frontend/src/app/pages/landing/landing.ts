@@ -1,5 +1,5 @@
 import { NgOptimizedImage } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Icon } from '../../shared/icon/icon';
 
@@ -32,6 +32,14 @@ interface Step {
   templateUrl: './landing.html',
 })
 export class Landing {
+  protected readonly appStores = [
+    { caption: 'Download on the', name: 'App Store' },
+    { caption: 'Get it on', name: 'Google Play' },
+  ];
+
+  // Kept in memory until favourites are stored per user.
+  private readonly favourites = signal<ReadonlySet<string>>(new Set());
+
   protected readonly orderSteps = ['Ordered', 'Preparing', 'On the way', 'Delivered'];
   protected readonly activeOrderStep = 2;
 
@@ -139,6 +147,20 @@ export class Landing {
       description: 'Track your rider live on the map. We will let you know the moment your food arrives.',
     },
   ];
+
+  protected isFavourite(restaurant: Restaurant): boolean {
+    return this.favourites().has(restaurant.name);
+  }
+
+  protected toggleFavourite(restaurant: Restaurant): void {
+    this.favourites.update((current) => {
+      const next = new Set(current);
+      if (!next.delete(restaurant.name)) {
+        next.add(restaurant.name);
+      }
+      return next;
+    });
+  }
 
   protected onSearch(event: Event, address: string): void {
     event.preventDefault();
