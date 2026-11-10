@@ -60,10 +60,10 @@ class UserMapperTest {
     }
 
     @Test
-    void toAuthResponse_mapsUserFieldsAndAccessToken() {
-        var response = userMapper.toAuthResponse(user(), "access-token");
+    void toAuthResponse_mapsUserFields() {
+        var response = userMapper.toAuthResponse(user());
         assertThat(response).isEqualTo(new AuthResponseDto(
-                "access-token", ID.toString(), FIRST_NAME, LAST_NAME, EMAIL, List.of("RIDER", "USER")));
+                ID.toString(), FIRST_NAME, LAST_NAME, EMAIL, List.of("RIDER", "USER")));
     }
 
     private RegistrationRequestDto registrationRequest() {

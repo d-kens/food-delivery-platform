@@ -2,7 +2,6 @@ package com.example.user_service.service;
 
 import com.example.user_service.common.UserStatus;
 import com.example.user_service.dto.AuthRequestDto;
-import com.example.user_service.dto.AuthResponseDto;
 import com.example.user_service.dto.RegistrationRequestDto;
 import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.common.Role;
@@ -60,12 +59,10 @@ public class AuthenticationService {
         String accessToken = jwtService.generateToken(user);
         String refreshToken = refreshTokenService.createFor(user);
 
-        var loginResponse = userMapper.toAuthResponse(user, accessToken);
-
-        return new LoginResult(loginResponse, refreshToken);
+        return new LoginResult(userMapper.toAuthResponse(user), accessToken, refreshToken);
     }
 
-    public AuthResponseDto refreshToken(final String refreshToken) {
+    public RefreshResult refreshToken(final String refreshToken) {
 
         if (refreshToken == null || refreshToken.isBlank()) {
             throw new InvalidRefreshTokenException();
@@ -79,6 +76,6 @@ public class AuthenticationService {
         }
 
         String accessToken = jwtService.generateToken(user);
-        return userMapper.toAuthResponse(user, accessToken);
+        return new RefreshResult(userMapper.toAuthResponse(user), accessToken);
     }
 }

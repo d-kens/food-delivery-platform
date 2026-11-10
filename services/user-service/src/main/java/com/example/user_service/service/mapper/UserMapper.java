@@ -1,6 +1,5 @@
 package com.example.user_service.service.mapper;
 
-
 import com.example.user_service.common.Role;
 import com.example.user_service.dto.AuthResponseDto;
 import com.example.user_service.dto.RegistrationRequestDto;
@@ -26,10 +25,9 @@ public interface UserMapper {
 
     RegistrationResponseDto toRegistrationResponse(User user);
 
-    @Mapping(target = "userId", source = "user.id")
-    AuthResponseDto toAuthResponse(User user, String accessToken);
+    @Mapping(target = "userId", source = "id")
+    AuthResponseDto toAuthResponse(User user);
 
-    // Sorted so responses are stable regardless of Set iteration order.
     default List<String> toRoleNames(Set<Role> roles) {
         return roles.stream().map(Role::name).sorted().toList();
     }

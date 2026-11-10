@@ -79,13 +79,20 @@
     </div>
     <app-field-message
       fieldId="password"
-      [error]="error('password')"
+      [error]="error('password') ?? formError()"
       [warning]="capsLock() ? 'Caps Lock is on' : null"
     />
   </div>
 
   <div class="space-y-3 pt-3">
-    <button type="submit" class="btn-primary">Create account</button>
+    <button type="submit" class="btn-primary gap-2" [disabled]="submitting()">
+      @if (submitting()) {
+        <app-spinner />
+        Creating your account…
+      } @else {
+        Create account
+      }
+    </button>
 
     <p class="text-center text-xs text-zinc-500">
       By signing up you agree to our

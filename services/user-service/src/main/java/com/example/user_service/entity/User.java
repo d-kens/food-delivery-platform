@@ -1,6 +1,5 @@
 package com.example.user_service.entity;
 
-
 import com.example.user_service.common.Role;
 import com.example.user_service.common.UserStatus;
 import jakarta.persistence.CollectionTable;
@@ -55,7 +54,6 @@ public class User {
 
     private String lastName;
 
-    // Eager: roles are always needed to issue a token, and the set is tiny.
     @Builder.Default
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))

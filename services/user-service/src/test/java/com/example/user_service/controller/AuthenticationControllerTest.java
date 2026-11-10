@@ -9,9 +9,11 @@ import com.example.user_service.exception.InvalidCredentialException;
 import com.example.user_service.exception.InvalidRefreshTokenException;
 import com.example.user_service.exception.UserSuspendedException;
 import com.example.user_service.config.SecurityConfig;
+import com.example.user_service.security.AccessTokenCookieService;
 import com.example.user_service.security.RefreshTokenCookieService;
 import com.example.user_service.service.AuthenticationService;
 import com.example.user_service.service.LoginResult;
+import com.example.user_service.service.RefreshResult;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,10 +32,12 @@ import java.util.UUID;
 
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItems;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -75,6 +79,9 @@ class AuthenticationControllerTest {
 
     @MockitoBean
     private RefreshTokenCookieService refreshTokenCookieService;
+
+    @MockitoBean
+    private AccessTokenCookieService accessTokenCookieService;
 
     @Test
     void register_returnsCreatedWithResponseBody() throws Exception {
@@ -155,15 +162,21 @@ class AuthenticationControllerTest {
         when(authenticationService.login(any(AuthRequestDto.class))).thenReturn(
                 new LoginResult(
                         new AuthResponseDto(
-                                "access-token",
                                 userId,
                                 "Jane",
                                 "Doe",
                                 "jane.doe@gmail.com",
                                 List.of("USER")
                         ),
+                        "access-token",
                         "refresh-token"
                 )
+        );
+        when(accessTokenCookieService.createAccessTokenCookie("access-token")).thenReturn(
+                ResponseCookie.from(AccessTokenCookieService.COOKIE_NAME, "access-token")
+                        .path("/")
+                        .httpOnly(true)
+                        .build()
         );
         when(refreshTokenCookieService.createRefreshTokenCookie("refresh-token")).thenReturn(
                 ResponseCookie.from(RefreshTokenCookieService.COOKIE_NAME, "refresh-token")
@@ -176,10 +189,11 @@ class AuthenticationControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_LOGIN_REQUEST))
                 .andExpect(status().isOk())
-                .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("refresh_token=refresh-token")))
-                .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("HttpOnly")))
+                .andExpect(header().stringValues(HttpHeaders.SET_COOKIE, hasItems(
+                        containsString("access_token=access-token"),
+                        containsString("refresh_token=refresh-token"))))
                 .andExpect(jsonPath("$.refreshToken").doesNotExist())
-                .andExpect(jsonPath("$.accessToken").value("access-token"))
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
                 .andExpect(jsonPath("$.userId").value(userId))
                 .andExpect(jsonPath("$.email").value("jane.doe@gmail.com"))
                 .andExpect(jsonPath("$.roles", contains("USER")));
@@ -236,7 +250,6 @@ class AuthenticationControllerTest {
         var userId = UUID.randomUUID().toString();
         String refreshToken = "valid-refresh-token";
         var authResponse = new AuthResponseDto(
-                "access-token",
                 userId,
                 "Jane",
                 "Doe",
@@ -244,16 +257,19 @@ class AuthenticationControllerTest {
                 List.of("USER")
         );
 
-        when(authenticationService.refreshToken(refreshToken)).thenReturn(authResponse);
+        when(authenticationService.refreshToken(refreshToken)).thenReturn(new RefreshResult(authResponse, "access-token"));
+        when(accessTokenCookieService.createAccessTokenCookie("access-token")).thenReturn(
+                ResponseCookie.from(AccessTokenCookieService.COOKIE_NAME, "access-token").path("/").httpOnly(true).build()
+        );
 
-        mockMvc.perform(post(REFRESH_TOKEN_URL)
+        mockMvc.perform(post(REFRESH_TOKEN_URL).with(csrf())
                     .cookie(new Cookie(RefreshTokenCookieService.COOKIE_NAME, refreshToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").value("access-token"))
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
                 .andExpect(jsonPath("$.userId").value(userId))
                 .andExpect(jsonPath("$.email").value("jane.doe@gmail.com"))
                 .andExpect(jsonPath("$.roles", contains("USER")))
-                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE))
+                .andExpect(header().stringValues(HttpHeaders.SET_COOKIE, hasItems(containsString("access_token=access-token"))))
                 .andExpect(jsonPath("$.refreshToken").doesNotExist());
     }
 
@@ -262,7 +278,7 @@ class AuthenticationControllerTest {
         when(authenticationService.refreshToken(null))
                 .thenThrow(new InvalidRefreshTokenException());
 
-        mockMvc.perform(post(REFRESH_TOKEN_URL))
+        mockMvc.perform(post(REFRESH_TOKEN_URL).with(csrf()))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.title").value("Invalid Refresh Token"))
                 .andExpect(jsonPath("$.detail").value("Invalid or expired refresh token"));
@@ -276,7 +292,7 @@ class AuthenticationControllerTest {
         when(authenticationService.refreshToken(refreshToken))
                 .thenThrow(new InvalidRefreshTokenException());
 
-        mockMvc.perform(post(REFRESH_TOKEN_URL)
+        mockMvc.perform(post(REFRESH_TOKEN_URL).with(csrf())
                     .cookie(new Cookie(RefreshTokenCookieService.COOKIE_NAME, refreshToken)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.title").value("Invalid Refresh Token"))
@@ -291,7 +307,7 @@ class AuthenticationControllerTest {
         when(authenticationService.refreshToken(refreshToken))
                 .thenThrow(new UserSuspendedException("Your account has been suspended"));
 
-        mockMvc.perform(post(REFRESH_TOKEN_URL)
+        mockMvc.perform(post(REFRESH_TOKEN_URL).with(csrf())
                         .cookie(new Cookie(RefreshTokenCookieService.COOKIE_NAME, refreshToken)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.title").value("Account Suspended"))

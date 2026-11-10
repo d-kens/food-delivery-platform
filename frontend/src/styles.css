@@ -22,7 +22,6 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Tailwind v4 resets buttons to cursor: default; bring back the pointer. */
 @layer base {
   button:not(:disabled),
   [role='button']:not(:disabled) {
@@ -34,7 +33,6 @@ body {
   @apply bg-cream font-sans text-zinc-900 antialiased;
 }
 
-/* Shared form controls for the auth pages (and later, checkout/profile). */
 @layer components {
   .form-label {
     @apply mb-1 block text-sm font-medium text-zinc-800;

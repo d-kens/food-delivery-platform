@@ -1,4 +1,7 @@
-<header class="sticky top-0 z-50 border-b border-zinc-900/5 bg-cream/90 backdrop-blur">
+<header
+  class="sticky top-0 z-50 border-b backdrop-blur transition-colors"
+  [class]="menuOpen() ? 'border-transparent bg-cream' : 'border-zinc-900/5 bg-cream/90'"
+>
   <nav class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
     <a routerLink="/" class="font-display text-2xl font-bold tracking-tight" aria-label="Keroma home" (click)="closeMenu()">
       keroma<span class="text-brand-500">.</span>
@@ -17,55 +20,189 @@
     </div>
 
     <div class="hidden items-center gap-6 md:flex">
-      <a routerLink="/login" class="text-sm font-medium text-zinc-700 transition-colors hover:text-zinc-900">Log in</a>
-      <a
-        routerLink="/register"
-        class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
-      >
-        Sign up
-      </a>
+      @if (user(); as user) {
+        <span class="flex items-center gap-2 text-sm font-medium text-zinc-800">
+          <span class="grid size-8 place-items-center rounded-full bg-zinc-900 text-xs font-semibold text-white" aria-hidden="true">
+            {{ initials() }}
+          </span>
+          Hi, {{ user.firstName }}
+        </span>
+      } @else {
+        <a routerLink="/login" class="text-sm font-medium text-zinc-700 transition-colors hover:text-zinc-900">Log in</a>
+        <a
+          routerLink="/register"
+          class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
+        >
+          Sign up
+        </a>
+      }
     </div>
 
     <button
+      #menuToggle
       type="button"
-      class="-mr-2 grid size-10 place-items-center text-zinc-700 md:hidden"
+      class="-mr-2 grid size-11 place-items-center rounded-full text-zinc-900 transition-colors hover:bg-zinc-900/5 focus-visible:outline-2 focus-visible:outline-zinc-900 md:hidden"
       aria-controls="mobile-menu"
       [attr.aria-expanded]="menuOpen()"
       [attr.aria-label]="menuOpen() ? 'Close menu' : 'Open menu'"
       (click)="toggleMenu()"
     >
-      <ng-icon [name]="menuOpen() ? 'heroXMark' : 'heroBars3'" size="24" />
+      <span class="relative block h-3.5 w-5" aria-hidden="true">
+        <span
+          class="absolute left-0 h-0.5 w-5 rounded-full bg-current transition-all duration-300 ease-out"
+          [class]="menuOpen() ? 'top-1.5 rotate-45' : 'top-0'"
+        ></span>
+        <span
+          class="absolute top-1.5 left-0 h-0.5 w-5 rounded-full bg-current transition-opacity duration-150"
+          [class]="menuOpen() ? 'opacity-0' : 'opacity-100'"
+        ></span>
+        <span
+          class="absolute left-0 h-0.5 w-5 rounded-full bg-current transition-all duration-300 ease-out"
+          [class]="menuOpen() ? 'top-1.5 -rotate-45' : 'top-3'"
+        ></span>
+      </span>
     </button>
   </nav>
-
-  @if (menuOpen()) {
-    <div id="mobile-menu" class="border-t border-zinc-900/5 bg-cream px-4 pb-6 pt-2 md:hidden">
-      @for (link of links; track link.fragment) {
-        <a
-          routerLink="/"
-          [fragment]="link.fragment"
-          class="block border-b border-zinc-900/5 py-3 text-base text-zinc-800"
-          (click)="closeMenu()"
-        >
-          {{ link.label }}
-        </a>
-      }
-      <div class="mt-5 grid grid-cols-2 gap-3">
-        <a
-          routerLink="/login"
-          class="rounded-lg border border-zinc-300 py-2.5 text-center text-sm font-medium text-zinc-800"
-          (click)="closeMenu()"
-        >
-          Log in
-        </a>
-        <a
-          routerLink="/register"
-          class="rounded-lg bg-zinc-900 py-2.5 text-center text-sm font-medium text-white"
-          (click)="closeMenu()"
-        >
-          Sign up
-        </a>
-      </div>
-    </div>
-  }
 </header>
+
+@if (menuOpen()) {
+  <div
+    #mobileMenu
+    id="mobile-menu"
+    role="dialog"
+    aria-label="Menu"
+    tabindex="-1"
+    class="fixed inset-x-0 top-16 bottom-0 z-40 flex flex-col overflow-y-auto overscroll-contain bg-cream transition-opacity duration-200 focus:outline-none starting:opacity-0 md:hidden"
+  >
+    <div class="flex flex-1 flex-col px-4 pt-4">
+      <form
+        class="transition duration-300 ease-out starting:translate-y-2 starting:opacity-0"
+        (submit)="onSearch($event)"
+      >
+        <label for="mobile-address" class="sr-only">Delivery address</label>
+        <div class="relative">
+          <ng-icon
+            name="heroMapPin"
+            size="20"
+            class="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-zinc-400"
+          />
+          <input
+            id="mobile-address"
+            type="text"
+            autocomplete="street-address"
+            enterkeyhint="search"
+            placeholder="Enter your delivery address"
+            class="form-input pr-14 pl-11"
+          />
+          <button
+            type="submit"
+            class="absolute top-1/2 right-1.5 grid size-9 -translate-y-1/2 place-items-center rounded-md bg-brand-500 text-white transition-colors hover:bg-brand-600"
+            aria-label="Find restaurants"
+          >
+            <ng-icon name="heroArrowRight" size="18" />
+          </button>
+        </div>
+      </form>
+
+      <nav
+        class="mt-4 transition delay-75 duration-300 ease-out starting:translate-y-2 starting:opacity-0"
+        aria-label="Main"
+      >
+        <ul class="divide-y divide-zinc-900/5">
+          @for (link of mobileLinks; track link.fragment) {
+            <li>
+              <a
+                routerLink="/"
+                [fragment]="link.fragment"
+                class="-mx-2 flex items-center gap-4 rounded-xl px-2 py-3.5 transition-colors active:bg-zinc-900/5"
+                (click)="closeMenu()"
+              >
+                <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-white text-zinc-700 ring-1 ring-zinc-900/5">
+                  <ng-icon [name]="link.icon" size="22" />
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="block text-base font-semibold text-zinc-900">{{ link.label }}</span>
+                  <span class="block text-sm text-zinc-500">{{ link.description }}</span>
+                </span>
+                <ng-icon name="heroChevronRight" size="18" class="text-zinc-400" />
+              </a>
+            </li>
+          }
+          <li>
+            <a
+              href="#"
+              class="-mx-2 flex items-center gap-4 rounded-xl px-2 py-3.5 transition-colors active:bg-zinc-900/5"
+              (click)="closeMenu()"
+            >
+              <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-white text-zinc-700 ring-1 ring-zinc-900/5">
+                <ng-icon name="heroLifebuoy" size="22" />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-base font-semibold text-zinc-900">Help centre</span>
+                <span class="block text-sm text-zinc-500">Orders, payments and your account</span>
+              </span>
+              <ng-icon name="heroChevronRight" size="18" class="text-zinc-400" />
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      <section
+        class="mt-6 transition delay-150 duration-300 ease-out starting:translate-y-2 starting:opacity-0"
+        aria-labelledby="partner-heading"
+      >
+        <h2 id="partner-heading" class="text-xs font-semibold tracking-wider text-zinc-500 uppercase">
+          Partner with Keroma
+        </h2>
+        <div class="mt-3 grid grid-cols-2 gap-3">
+          @for (partner of partnerLinks; track partner.path) {
+            <a
+              [routerLink]="partner.path"
+              class="group rounded-2xl bg-white p-4 ring-1 ring-zinc-900/5 transition active:scale-[0.98]"
+              (click)="closeMenu()"
+            >
+              <span class="grid size-10 place-items-center rounded-xl bg-brand-50 text-brand-600">
+                <ng-icon [name]="partner.icon" size="20" />
+              </span>
+              <span class="mt-3 block text-sm font-semibold text-zinc-900">{{ partner.label }}</span>
+              <span class="mt-0.5 block text-xs text-zinc-500">{{ partner.description }}</span>
+            </a>
+          }
+        </div>
+      </section>
+
+      <p class="mt-auto flex justify-center gap-4 pt-8 pb-4 text-xs text-zinc-500">
+        <a href="#" class="hover:text-zinc-800">Terms</a>
+        <a href="#" class="hover:text-zinc-800">Privacy</a>
+        <span>&copy; Keroma</span>
+      </p>
+    </div>
+
+    <div
+      class="sticky bottom-0 border-t border-zinc-900/5 bg-cream px-4 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] transition delay-200 duration-300 ease-out starting:translate-y-2 starting:opacity-0"
+    >
+      @if (user(); as user) {
+        <div class="flex items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-zinc-900/5">
+          <span class="grid size-11 shrink-0 place-items-center rounded-full bg-zinc-900 text-sm font-semibold text-white" aria-hidden="true">
+            {{ initials() }}
+          </span>
+          <span class="min-w-0">
+            <span class="block truncate text-sm font-semibold text-zinc-900">{{ user.firstName }} {{ user.lastName }}</span>
+            <span class="block truncate text-xs text-zinc-500">{{ user.email }}</span>
+          </span>
+        </div>
+      } @else {
+        <div class="grid grid-cols-2 gap-3">
+          <a
+            routerLink="/login"
+            class="flex h-12 items-center justify-center rounded-lg border border-zinc-300 bg-white text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-50"
+            (click)="closeMenu()"
+          >
+            Log in
+          </a>
+          <a routerLink="/register" class="btn-primary" (click)="closeMenu()">Sign up</a>
+        </div>
+      }
+    </div>
+  </div>
+}

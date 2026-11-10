@@ -116,18 +116,18 @@ class AuthenticationServiceTest {
         when(refreshTokenService.createFor(user)).thenReturn("refresh-token");
 
         var expectedResponse = new AuthResponseDto(
-                "access-token",
                 user.getId().toString(),
                 user.getFirstName(),
                 user.getLastName(),
                 user.getEmail(),
                 List.of("USER")
         );
-        when(userMapper.toAuthResponse(user, "access-token")).thenReturn(expectedResponse);
+        when(userMapper.toAuthResponse(user)).thenReturn(expectedResponse);
 
         var loginResult = authenticationService.login(request);
 
         assertThat(loginResult.authResponse()).isSameAs(expectedResponse);
+        assertThat(loginResult.accessToken()).isEqualTo("access-token");
         assertThat(loginResult.refreshToken()).isEqualTo("refresh-token");
     }
 
@@ -188,7 +188,6 @@ class AuthenticationServiceTest {
         var storedToken = RefreshToken.builder().user(user).build();
 
         var expectedResponse = new AuthResponseDto(
-                "access-token",
                 user.getId().toString(),
                 user.getFirstName(),
                 user.getLastName(),
@@ -198,11 +197,12 @@ class AuthenticationServiceTest {
 
         when(refreshTokenService.validate("raw-token")).thenReturn(storedToken);
         when(jwtService.generateToken(user)).thenReturn("access-token");
-        when(userMapper.toAuthResponse(user, "access-token")).thenReturn(expectedResponse);
+        when(userMapper.toAuthResponse(user)).thenReturn(expectedResponse);
 
-        var response = authenticationService.refreshToken("raw-token");
+        var result = authenticationService.refreshToken("raw-token");
 
-        assertThat(response).isSameAs(expectedResponse);
+        assertThat(result.authResponse()).isSameAs(expectedResponse);
+        assertThat(result.accessToken()).isEqualTo("access-token");
         verify(refreshTokenService, never()).createFor(any());
     }
 

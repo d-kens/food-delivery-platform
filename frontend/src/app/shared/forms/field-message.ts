@@ -1,10 +1,5 @@
 import { Component, computed, input } from '@angular/core';
 
-/**
- * The line under a form field. Always rendered with a fixed minimum height so
- * showing or clearing an error never shifts the layout. Shows, in priority
- * order: an error, a warning (e.g. Caps Lock), or a hint.
- */
 @Component({
   selector: 'app-field-message',
   host: { class: 'block' },
@@ -14,6 +9,7 @@ import { Component, computed, input } from '@angular/core';
       class="mt-1 min-h-4 text-xs leading-4"
       [class]="toneClass()"
       [attr.data-state]="state()"
+      aria-live="polite"
     >
       @if (error()) {
         {{ error() }}
