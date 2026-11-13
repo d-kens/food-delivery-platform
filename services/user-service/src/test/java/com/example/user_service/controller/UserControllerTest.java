@@ -8,6 +8,7 @@ import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.InvalidCurrentPasswordException;
 import com.example.user_service.exception.OwnStatusChangeException;
+import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
 import com.example.user_service.exception.UserNotFoundException;
 import com.example.user_service.dto.PageResponseDto;
 import com.example.user_service.service.UserService;
@@ -284,6 +285,20 @@ class UserControllerTest {
                         .content("{\"email\": \"taken@gmail.com\", \"currentPassword\": \"secret123\"}")
                         .with(user(UUID.randomUUID())))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void updateMe_returnsConflict_whenPhoneNumberTaken() throws Exception {
+        when(userService.updateCurrentUser(any(), any()))
+                .thenThrow(new PhoneNumberAlreadyExistsException("An account with this phone number already exists"));
+
+        mockMvc.perform(patch(USERS_URL + "/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"phoneNumber\": \"+254707127309\"}")
+                        .with(user(UUID.randomUUID())))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Phone number already exists"))
+                .andExpect(jsonPath("$.detail").value("An account with this phone number already exists"));
     }
 
     @Test

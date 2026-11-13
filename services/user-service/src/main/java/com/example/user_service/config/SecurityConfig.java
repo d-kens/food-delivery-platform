@@ -10,6 +10,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.ObjectPostProcessor;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -45,6 +46,9 @@ public class SecurityConfig {
             WebUtils.getCookie(request, AccessTokenCookieService.COOKIE_NAME) != null
                     || WebUtils.getCookie(request, RefreshTokenCookieService.COOKIE_NAME) != null;
 
+    public static final RequestMatcher CSRF_REQUIRED =
+            new AndRequestMatcher(CsrfFilter.DEFAULT_CSRF_MATCHER, HAS_AUTH_COOKIE);
+
     private final CsrfProperties csrfProperties;
 
     @Bean
@@ -53,8 +57,14 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf
                         .spa()
                         .csrfTokenRepository(csrfTokenRepository())
-                        .requireCsrfProtectionMatcher(
-                                new AndRequestMatcher(CsrfFilter.DEFAULT_CSRF_MATCHER, HAS_AUTH_COOKIE))
+                        .requireCsrfProtectionMatcher(CSRF_REQUIRED)
+                        .withObjectPostProcessor(new ObjectPostProcessor<CsrfFilter>() {
+                            @Override
+                            public <O extends CsrfFilter> O postProcess(O filter) {
+                                filter.setRequireCsrfProtectionMatcher(CSRF_REQUIRED);
+                                return filter;
+                            }
+                        })
                 )
                 .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
