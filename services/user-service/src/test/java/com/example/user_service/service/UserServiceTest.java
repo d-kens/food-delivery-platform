@@ -2,6 +2,7 @@ package com.example.user_service.service;
 
 import com.example.user_service.common.Role;
 import com.example.user_service.common.UserStatus;
+import com.example.user_service.dto.ChangePasswordRequestDto;
 import com.example.user_service.dto.UpdateUserRequestDto;
 import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.entity.User;
@@ -244,6 +245,55 @@ class UserServiceTest {
         assertThatThrownBy(() -> userService.updateCurrentUser(USER_ID,
                 new UpdateUserRequestDto("Janet", null, null, null, null)))
                 .isInstanceOf(UserSuspendedException.class);
+    }
+
+    @Test
+    void changePassword_savesNewHashAndRevokesRefreshTokens() {
+        var user = user(UserStatus.ACTIVE);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("OldPassw0rd!", "hashed")).thenReturn(true);
+        when(passwordEncoder.encode("NewPassw0rd!")).thenReturn("new-hash");
+
+        userService.changePassword(USER_ID, new ChangePasswordRequestDto("OldPassw0rd!", "NewPassw0rd!"));
+
+        assertThat(user.getPasswordHash()).isEqualTo("new-hash");
+        verify(refreshTokenService).revokeAllFor(USER_ID);
+    }
+
+    @Test
+    void changePassword_throws_whenCurrentPasswordIsWrong() {
+        var user = user(UserStatus.ACTIVE);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.changePassword(USER_ID,
+                new ChangePasswordRequestDto("wrong", "NewPassw0rd!")))
+                .isInstanceOf(InvalidCurrentPasswordException.class)
+                .hasMessage("Current password is incorrect");
+
+        assertThat(user.getPasswordHash()).isEqualTo("hashed");
+        verify(passwordEncoder, never()).encode(anyString());
+        verify(refreshTokenService, never()).revokeAllFor(any());
+    }
+
+    @Test
+    void changePassword_throwsSuspended_whenUserIsNotActive() {
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user(UserStatus.SUSPENDED)));
+
+        assertThatThrownBy(() -> userService.changePassword(USER_ID,
+                new ChangePasswordRequestDto("OldPassw0rd!", "NewPassw0rd!")))
+                .isInstanceOf(UserSuspendedException.class);
+
+        verify(refreshTokenService, never()).revokeAllFor(any());
+    }
+
+    @Test
+    void changePassword_throwsAccountNotFound_whenUserNoLongerExists() {
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.changePassword(USER_ID,
+                new ChangePasswordRequestDto("OldPassw0rd!", "NewPassw0rd!")))
+                .isInstanceOf(AccountNotFoundException.class);
     }
 
     private User user(UserStatus status) {

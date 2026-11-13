@@ -35,3 +35,13 @@ X-XSRF-TOKEN: {{xsrf}}
   "email": "janet.doe@gmail.com",
   "currentPassword": "password123"
 }
+
+### Change my password (logs out every device, including this one)
+PATCH {{baseUrl}}/users/me/password
+Content-Type: application/json
+X-XSRF-TOKEN: {{xsrf}}
+
+{
+  "currentPassword": "password123",
+  "newPassword": "newPassword123"
+}

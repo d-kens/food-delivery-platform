@@ -2,6 +2,7 @@ package com.example.user_service.service;
 
 import com.example.user_service.common.Role;
 import com.example.user_service.common.UserStatus;
+import com.example.user_service.dto.ChangePasswordRequestDto;
 import com.example.user_service.dto.PageResponseDto;
 import com.example.user_service.dto.UpdateUserRequestDto;
 import com.example.user_service.dto.UserResponseDto;
@@ -66,6 +67,18 @@ public class UserService {
         }
 
         return userMapper.toUserResponse(user);
+    }
+
+    @Transactional
+    public void changePassword(final UUID userId, final ChangePasswordRequestDto request) {
+        var user = findActiveUser(userId);
+
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw new InvalidCurrentPasswordException("Current password is incorrect");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        refreshTokenService.revokeAllFor(userId);
     }
 
     @Transactional(readOnly = true)

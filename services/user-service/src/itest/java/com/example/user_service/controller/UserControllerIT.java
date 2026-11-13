@@ -296,6 +296,87 @@ class UserControllerIT extends AbstractIntegrationTest {
         assertThat(userRepository.findById(jane.getId()).orElseThrow().getFirstName()).isEqualTo("Jane");
     }
 
+    @Test
+    void changePassword_updatesPasswordRevokesSessionsAndClearsCookies() throws Exception {
+        login(JANE_EMAIL);
+        login(JOHN_EMAIL);
+        String newPassword = "N3wPassword!";
+
+        List<String> setCookies = mockMvc.perform(patch(USERS_URL + "/me/password")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(JANE_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(changePasswordJson(PASSWORD, newPassword)))
+                .andExpect(status().isNoContent())
+                .andReturn()
+                .getResponse()
+                .getHeaders(HttpHeaders.SET_COOKIE);
+
+        assertThat(setCookies)
+                .anySatisfy(cookie -> assertThat(cookie).startsWith("access_token=").contains("Max-Age=0"))
+                .anySatisfy(cookie -> assertThat(cookie).startsWith("refresh_token=").contains("Max-Age=0"));
+
+        var saved = userRepository.findById(jane.getId()).orElseThrow();
+        assertThat(passwordEncoder.matches(newPassword, saved.getPasswordHash())).isTrue();
+        assertThat(passwordEncoder.matches(PASSWORD, saved.getPasswordHash())).isFalse();
+
+        assertThat(refreshTokenRepository.findAll())
+                .filteredOn(token -> token.getUser().getId().equals(jane.getId()))
+                .isNotEmpty()
+                .allSatisfy(token -> assertThat(token.getRevokedAt()).isNotNull());
+        assertThat(refreshTokenRepository.findAll())
+                .filteredOn(token -> !token.getUser().getId().equals(jane.getId()))
+                .isNotEmpty()
+                .allSatisfy(token -> assertThat(token.getRevokedAt()).isNull());
+
+        mockMvc.perform(post(LOGIN_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson(JANE_EMAIL, PASSWORD)))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post(LOGIN_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson(JANE_EMAIL, newPassword)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void changePassword_returnsBadRequest_andKeepsPassword_whenCurrentPasswordIsWrong() throws Exception {
+        login(JANE_EMAIL);
+
+        mockMvc.perform(patch(USERS_URL + "/me/password")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(JANE_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(changePasswordJson("Wr0ngPassword!", "N3wPassword!")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Current password is incorrect"));
+
+        var saved = userRepository.findById(jane.getId()).orElseThrow();
+        assertThat(passwordEncoder.matches(PASSWORD, saved.getPasswordHash())).isTrue();
+        assertThat(refreshTokenRepository.findAll())
+                .allSatisfy(token -> assertThat(token.getRevokedAt()).isNull());
+    }
+
+    @Test
+    void changePassword_withAccessTokenCookie_isRejected_withoutCsrfToken() throws Exception {
+        mockMvc.perform(patch(USERS_URL + "/me/password")
+                        .cookie(new Cookie("access_token", login(JANE_EMAIL)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(changePasswordJson(PASSWORD, "N3wPassword!")))
+                .andExpect(status().isForbidden());
+
+        var saved = userRepository.findById(jane.getId()).orElseThrow();
+        assertThat(passwordEncoder.matches(PASSWORD, saved.getPasswordHash())).isTrue();
+    }
+
+    private String changePasswordJson(String currentPassword, String newPassword) {
+        return """
+                {
+                  "currentPassword": "%s",
+                  "newPassword": "%s"
+                }
+                """.formatted(currentPassword, newPassword);
+    }
+
     private User saveUser(String email, String firstName, String lastName, String phoneNumber, Role role) {
         return userRepository.save(User.builder()
                 .email(email)

@@ -3,8 +3,11 @@ package com.example.user_service.controller;
 import com.example.user_service.common.Role;
 import com.example.user_service.common.UserStatus;
 import com.example.user_service.config.SecurityConfig;
+import com.example.user_service.dto.ChangePasswordRequestDto;
 import com.example.user_service.dto.UpdateUserRequestDto;
 import com.example.user_service.dto.UserResponseDto;
+import com.example.user_service.security.AccessTokenCookieService;
+import com.example.user_service.security.RefreshTokenCookieService;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.InvalidCurrentPasswordException;
 import com.example.user_service.exception.OwnStatusChangeException;
@@ -12,11 +15,14 @@ import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
 import com.example.user_service.exception.UserNotFoundException;
 import com.example.user_service.dto.PageResponseDto;
 import com.example.user_service.service.UserService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -26,7 +32,12 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import java.util.List;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.any;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -55,6 +66,20 @@ class UserControllerTest {
 
     @MockitoBean
     private JwtDecoder jwtDecoder;
+
+    @MockitoBean
+    private AccessTokenCookieService accessTokenCookieService;
+
+    @MockitoBean
+    private RefreshTokenCookieService refreshTokenCookieService;
+
+    @BeforeEach
+    void stubClearedCookies() {
+        when(accessTokenCookieService.clearAccessTokenCookie()).thenReturn(
+                ResponseCookie.from(AccessTokenCookieService.COOKIE_NAME, "").path("/").maxAge(0).build());
+        when(refreshTokenCookieService.clearRefreshTokenCookie()).thenReturn(
+                ResponseCookie.from(RefreshTokenCookieService.COOKIE_NAME, "").path("/auth").maxAge(0).build());
+    }
 
     @Test
     void getUsers_returnsPage_forAdmin() throws Exception {
@@ -307,6 +332,59 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"firstName\": \"Janet\"}"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void changePassword_returnsNoContentAndClearsAuthCookies() throws Exception {
+        var id = UUID.randomUUID();
+
+        mockMvc.perform(patch(USERS_URL + "/me/password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\": \"OldPassw0rd!\", \"newPassword\": \"NewPassw0rd!\"}")
+                        .with(user(id)))
+                .andExpect(status().isNoContent())
+                .andExpect(header().stringValues(HttpHeaders.SET_COOKIE, hasItems(
+                        allOf(startsWith("access_token="), containsString("Max-Age=0")),
+                        allOf(startsWith("refresh_token="), containsString("Max-Age=0")))));
+
+        verify(userService).changePassword(id, new ChangePasswordRequestDto("OldPassw0rd!", "NewPassw0rd!"));
+    }
+
+    @Test
+    void changePassword_returnsBadRequest_whenCurrentPasswordWrong() throws Exception {
+        doThrow(new InvalidCurrentPasswordException("Current password is incorrect"))
+                .when(userService).changePassword(any(), any());
+
+        mockMvc.perform(patch(USERS_URL + "/me/password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\": \"wrong\", \"newPassword\": \"NewPassw0rd!\"}")
+                        .with(user(UUID.randomUUID())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Current password is incorrect"))
+                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
+    }
+
+    @Test
+    void changePassword_returnsBadRequest_whenFieldsInvalid() throws Exception {
+        mockMvc.perform(patch(USERS_URL + "/me/password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\": \"\", \"newPassword\": \"short\"}")
+                        .with(user(UUID.randomUUID())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.currentPassword").exists())
+                .andExpect(jsonPath("$.errors.newPassword").exists());
+
+        verify(userService, never()).changePassword(any(), any());
+    }
+
+    @Test
+    void changePassword_returnsUnauthorized_withoutToken() throws Exception {
+        mockMvc.perform(patch(USERS_URL + "/me/password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\": \"OldPassw0rd!\", \"newPassword\": \"NewPassw0rd!\"}"))
+                .andExpect(status().isUnauthorized());
+
+        verify(userService, never()).changePassword(any(), any());
     }
 
     private static RequestPostProcessor user(UUID id) {
