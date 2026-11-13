@@ -121,7 +121,7 @@ class AuthenticationServiceTest {
                 user.getLastName(),
                 user.getEmail(),
                 List.of("USER")
-        );
+        , null, UserStatus.ACTIVE);
         when(userMapper.toUserResponse(user)).thenReturn(expectedResponse);
 
         var loginResult = authenticationService.login(request);
@@ -193,7 +193,7 @@ class AuthenticationServiceTest {
                 user.getLastName(),
                 user.getEmail(),
                 List.of("USER")
-        );
+        , null, UserStatus.ACTIVE);
 
         when(refreshTokenService.validate("raw-token")).thenReturn(storedToken);
         when(jwtService.generateToken(user)).thenReturn("access-token");

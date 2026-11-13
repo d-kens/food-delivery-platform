@@ -60,7 +60,7 @@ class UserServiceTest {
     @Test
     void getCurrentUser_returnsMappedUser() {
         var user = user(UserStatus.ACTIVE);
-        var expected = new UserResponseDto(USER_ID.toString(), "Jane", "Doe", "jane.doe@gmail.com", List.of("USER"));
+        var expected = new UserResponseDto(USER_ID.toString(), "Jane", "Doe", "jane.doe@gmail.com", List.of("USER"), null, UserStatus.ACTIVE);
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
         when(userMapper.toUserResponse(user)).thenReturn(expected);
 
@@ -87,7 +87,7 @@ class UserServiceTest {
     @SuppressWarnings("unchecked")
     void getUsers_returnsMappedPageSortedNewestFirst() {
         var user = user(UserStatus.ACTIVE);
-        var dto = new UserResponseDto(USER_ID.toString(), "Jane", "Doe", "jane.doe@gmail.com", List.of("USER"));
+        var dto = new UserResponseDto(USER_ID.toString(), "Jane", "Doe", "jane.doe@gmail.com", List.of("USER"), null, UserStatus.ACTIVE);
         var pageable = ArgumentCaptor.forClass(Pageable.class);
         when(userRepository.findAll(any(Specification.class), pageable.capture()))
                 .thenAnswer(inv -> new PageImpl<>(List.of(user), inv.getArgument(1), 41));
@@ -108,7 +108,7 @@ class UserServiceTest {
     @Test
     void getUserById_returnsMappedUser_evenWhenSuspended() {
         var user = user(UserStatus.SUSPENDED);
-        var expected = new UserResponseDto(USER_ID.toString(), "Jane", "Doe", "jane.doe@gmail.com", List.of("USER"));
+        var expected = new UserResponseDto(USER_ID.toString(), "Jane", "Doe", "jane.doe@gmail.com", List.of("USER"), null, UserStatus.ACTIVE);
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
         when(userMapper.toUserResponse(user)).thenReturn(expected);
 
@@ -256,7 +256,7 @@ class UserServiceTest {
     void updateUserRoles_replacesRolesAndReturnsMappedUser() {
         var user = user(UserStatus.ACTIVE);
         user.getRoles().add(Role.RIDER);
-        var expected = new UserResponseDto(USER_ID.toString(), "Jane", "Doe", "jane.doe@gmail.com", List.of("ADMIN", "USER"));
+        var expected = new UserResponseDto(USER_ID.toString(), "Jane", "Doe", "jane.doe@gmail.com", List.of("ADMIN", "USER"), null, UserStatus.ACTIVE);
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
         when(userMapper.toUserResponse(user)).thenReturn(expected);
 

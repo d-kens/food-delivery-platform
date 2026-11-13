@@ -91,7 +91,7 @@ class UserControllerTest {
 
     @Test
     void getUsers_returnsPage_forAdmin() throws Exception {
-        var user = new UserResponseDto("id-1", "Jane", "Doe", "jane.doe@gmail.com", List.of("USER"));
+        var user = new UserResponseDto("id-1", "Jane", "Doe", "jane.doe@gmail.com", List.of("USER"), null, UserStatus.ACTIVE);
         when(userService.getUsers(UserStatus.SUSPENDED, Role.RIDER, "jane", 1, 10))
                 .thenReturn(new PageResponseDto<>(List.of(user), 1, 10, 11, 2));
 
@@ -161,7 +161,7 @@ class UserControllerTest {
     void getUserById_returnsUser_forAdmin() throws Exception {
         var id = UUID.randomUUID();
         when(userService.getUserById(id))
-                .thenReturn(new UserResponseDto(id.toString(), "Jane", "Doe", "jane.doe@gmail.com", List.of("USER")));
+                .thenReturn(new UserResponseDto(id.toString(), "Jane", "Doe", "jane.doe@gmail.com", List.of("USER"), null, UserStatus.ACTIVE));
 
         mockMvc.perform(get(USERS_URL + "/" + id).with(admin()))
                 .andExpect(status().isOk())
@@ -198,7 +198,7 @@ class UserControllerTest {
     void me_isAllowed_forNonAdmin() throws Exception {
         var id = UUID.randomUUID();
         when(userService.getCurrentUser(id))
-                .thenReturn(new UserResponseDto(id.toString(), "Jane", "Doe", "jane.doe@gmail.com", List.of("USER")));
+                .thenReturn(new UserResponseDto(id.toString(), "Jane", "Doe", "jane.doe@gmail.com", List.of("USER"), null, UserStatus.ACTIVE));
 
         mockMvc.perform(get(USERS_URL + "/me")
                         .with(jwt().jwt(j -> j.subject(id.toString()))
@@ -271,7 +271,7 @@ class UserControllerTest {
         var id = UUID.randomUUID();
         var request = new UpdateUserRequestDto("Janet", null, null, "+254707127309", null);
         when(userService.updateCurrentUser(id, request))
-                .thenReturn(new UserResponseDto(id.toString(), "Janet", "Doe", "jane.doe@gmail.com", List.of("USER")));
+                .thenReturn(new UserResponseDto(id.toString(), "Janet", "Doe", "jane.doe@gmail.com", List.of("USER"), null, UserStatus.ACTIVE));
 
         mockMvc.perform(patch(USERS_URL + "/me")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -346,7 +346,7 @@ class UserControllerTest {
     void updateRoles_returnsUpdatedUser_forAdmin() throws Exception {
         var id = UUID.randomUUID();
         when(userService.updateUserRoles(ADMIN_ID, id, Set.of(Role.USER, Role.ADMIN)))
-                .thenReturn(new UserResponseDto(id.toString(), "Jane", "Doe", "jane.doe@gmail.com", List.of("ADMIN", "USER")));
+                .thenReturn(new UserResponseDto(id.toString(), "Jane", "Doe", "jane.doe@gmail.com", List.of("ADMIN", "USER"), null, UserStatus.ACTIVE));
 
         mockMvc.perform(put(USERS_URL + "/" + id + "/roles")
                         .contentType(MediaType.APPLICATION_JSON)

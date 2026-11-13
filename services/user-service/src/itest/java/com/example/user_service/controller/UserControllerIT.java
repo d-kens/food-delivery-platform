@@ -123,7 +123,9 @@ class UserControllerIT extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").value(jane.getId().toString()))
                 .andExpect(jsonPath("$.email").value(JANE_EMAIL))
-                .andExpect(jsonPath("$.firstName").value("Jane"));
+                .andExpect(jsonPath("$.firstName").value("Jane"))
+                .andExpect(jsonPath("$.phoneNumber").value("+254707127309"))
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
     }
 
     @Test
