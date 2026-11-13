@@ -14,6 +14,11 @@ import { Spinner } from '../../../shared/spinner/spinner';
 
 type Field = 'email' | 'password';
 
+const NOTICES: Record<string, string> = {
+  'password-changed': 'Password changed. Log in with your new password.',
+  'account-deleted': 'Your account has been deleted.',
+};
+
 const REQUIRED: Record<Field, string> = {
   email: 'Enter your email address',
   password: 'Enter your password',
@@ -38,6 +43,7 @@ export class Login {
   protected readonly formError = signal<string | null>(null);
   private readonly submitted = signal(false);
   protected readonly justRegistered = signal(false);
+  protected readonly notice = signal<string | null>(null);
 
   protected readonly form = this.fb.group({
     email: ['', [notBlank, Validators.email]],
@@ -45,7 +51,10 @@ export class Login {
   });
 
   constructor() {
-    const registeredEmail = this.router.currentNavigation()?.extras.state?.['registeredEmail'];
+    const state = this.router.currentNavigation()?.extras.state;
+    this.notice.set(NOTICES[state?.['notice'] as string] ?? null);
+
+    const registeredEmail = state?.['registeredEmail'];
     if (typeof registeredEmail === 'string') {
       this.justRegistered.set(true);
       this.form.controls.email.setValue(registeredEmail);

@@ -1,3 +1,7 @@
+export type Role = 'USER' | 'RIDER' | 'ADMIN';
+
+export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'DELETED';
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -16,6 +20,8 @@ export interface UserResponse {
   lastName: string;
   email: string;
   roles: string[];
+  phoneNumber: string | null;
+  status: UserStatus;
 }
 
 export interface SessionUser {
@@ -23,5 +29,6 @@ export interface SessionUser {
   firstName: string;
   lastName: string;
   email: string;
+  phoneNumber: string | null;
   roles: string[];
 }

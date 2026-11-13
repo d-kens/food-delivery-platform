@@ -168,4 +168,29 @@ describe('Login', () => {
       expect(compiled.querySelector('[role="status"]')?.textContent ?? '').not.toContain('Account created');
     });
   });
+
+  describe('arriving after an account change', () => {
+    const arriveWith = async (notice: string) => {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [provideRouter([{ path: 'login', component: Login }]), provideHttpClient(), provideHttpClientTesting()],
+      });
+      const harness = await RouterTestingHarness.create();
+      await TestBed.inject(Router).navigate(['/login'], { state: { notice } });
+      await harness.fixture.whenStable();
+      return harness.routeNativeElement!.querySelector('[role="status"]')?.textContent ?? '';
+    };
+
+    it('should confirm a password change', async () => {
+      expect(await arriveWith('password-changed')).toContain('Password changed. Log in with your new password.');
+    });
+
+    it('should confirm an account deletion', async () => {
+      expect(await arriveWith('account-deleted')).toContain('Your account has been deleted.');
+    });
+
+    it('should ignore unknown notices', async () => {
+      expect(await arriveWith('something-else')).toBe('');
+    });
+  });
 });

@@ -119,12 +119,41 @@ describe('Header mobile menu', () => {
       expect(compiled.textContent).toContain('Sign up');
     });
 
+    it('should link to account settings but not to admin pages for regular users', async () => {
+      expect(compiled.querySelector('a[href="/account"]')).toBeTruthy();
+      expect(compiled.querySelector('a[href="/admin/users"]')).toBeNull();
+    });
+
     it('should show the account card with a log out button in the mobile menu', async () => {
       await open();
 
       expect(menu()?.textContent).toContain('jane.doe@gmail.com');
       expect(menu()?.textContent).toContain('Log out');
       expect(menu()?.textContent).not.toContain('Sign up');
+      expect(menu()?.textContent).toContain('Account settings');
+    });
+  });
+
+  describe('when logged in as an admin', () => {
+    let http: HttpTestingController;
+
+    beforeEach(async () => {
+      http = TestBed.inject(HttpTestingController);
+      TestBed.inject(AuthService).login({ email: 'admin@gmail.com', password: 'secret123' }).subscribe();
+      http.expectOne((r) => r.url.endsWith('/auth/login')).flush({
+        userId: '1', firstName: 'Ada', lastName: 'Admin', email: 'admin@gmail.com', roles: ['ADMIN', 'USER'],
+        phoneNumber: null, status: 'ACTIVE',
+      });
+      await fixture.whenStable();
+    });
+
+    afterEach(() => http.verify());
+
+    it('should link to the admin user pages', async () => {
+      expect(compiled.querySelector('a[href="/admin/users"]')).toBeTruthy();
+
+      await open();
+      expect(menu()?.textContent).toContain('Admin');
     });
   });
 });

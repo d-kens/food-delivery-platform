@@ -1,0 +1,118 @@
+<div class="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+  <h1 class="font-display text-3xl font-bold tracking-tight">Users</h1>
+
+  <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-end">
+    <form class="flex-1" role="search" (submit)="onSearch($event, searchInput.value)">
+      <label for="search" class="form-label">Search</label>
+      <input
+        #searchInput
+        id="search"
+        type="search"
+        placeholder="Name or email"
+        class="form-input"
+        [value]="state().query.search ?? ''"
+      />
+    </form>
+
+    <div class="grid grid-cols-2 gap-3 sm:w-80">
+      <div>
+        <label for="status" class="form-label">Status</label>
+        <select
+          id="status"
+          class="form-input"
+          (change)="onFilter('status', $any($event.target).value)"
+        >
+          <option value="" [selected]="!state().query.status">All</option>
+          @for (status of statuses; track status) {
+            <option [value]="status" [selected]="state().query.status === status">
+              {{ label(status) }}
+            </option>
+          }
+        </select>
+      </div>
+      <div>
+        <label for="role" class="form-label">Role</label>
+        <select id="role" class="form-input" (change)="onFilter('role', $any($event.target).value)">
+          <option value="" [selected]="!state().query.role">All</option>
+          @for (role of roles; track role) {
+            <option [value]="role" [selected]="state().query.role === role">
+              {{ label(role) }}
+            </option>
+          }
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-6">
+    @let current = state();
+    @if (current.kind === 'loading') {
+      <p class="flex items-center gap-2 py-10 text-sm text-zinc-500">
+        <app-spinner /> Loading users…
+      </p>
+    } @else if (current.kind === 'error') {
+      <div
+        class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200"
+        role="alert"
+      >
+        Couldn't load users.
+        <button type="button" class="ml-1 font-semibold underline" (click)="retry()">
+          Try again
+        </button>
+      </div>
+    } @else if (current.kind === 'loaded') {
+      @if (current.page.content.length === 0) {
+        <p class="py-10 text-center text-sm text-zinc-500">No users match these filters.</p>
+      } @else {
+        <ul
+          class="divide-y divide-zinc-200 overflow-hidden rounded-xl bg-white ring-1 ring-zinc-900/5"
+        >
+          @for (user of current.page.content; track user.userId) {
+            <li>
+              <a
+                [routerLink]="['/admin/users', user.userId]"
+                class="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-zinc-50"
+              >
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-sm font-semibold text-zinc-900">
+                    {{ user.firstName }} {{ user.lastName }}
+                  </span>
+                  <span class="block truncate text-sm text-zinc-500">{{ user.email }}</span>
+                </span>
+                <span class="hidden text-xs text-zinc-500 sm:block">{{
+                  user.roles.join(', ')
+                }}</span>
+                <app-status-badge [status]="user.status" />
+              </a>
+            </li>
+          }
+        </ul>
+
+        <nav class="mt-4 flex items-center justify-between text-sm" aria-label="Pagination">
+          <span class="text-zinc-500">
+            Page {{ current.page.page + 1 }} of {{ current.page.totalPages || 1 }} ·
+            {{ current.page.totalElements }} users
+          </span>
+          <span class="flex gap-2">
+            <button
+              type="button"
+              class="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 font-medium disabled:opacity-50"
+              [disabled]="current.page.page === 0"
+              (click)="goToPage(current.page.page - 1)"
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              class="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 font-medium disabled:opacity-50"
+              [disabled]="current.page.page + 1 >= current.page.totalPages"
+              (click)="goToPage(current.page.page + 1)"
+            >
+              Next
+            </button>
+          </span>
+        </nav>
+      }
+    }
+  </div>
+</div>

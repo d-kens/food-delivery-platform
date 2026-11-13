@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { Observable, catchError, finalize, map, of, shareReplay } from 'rxjs';
+import { Observable, ReplaySubject, catchError, finalize, map, of, shareReplay, take } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { LoginRequest, RegisterRequest, SessionUser, UserResponse } from './auth.models';
 
@@ -12,9 +12,11 @@ export class AuthService {
 
   private readonly currentUser = signal<SessionUser | null>(null);
   private refreshInFlight: Observable<SessionUser> | null = null;
+  private readonly restored = new ReplaySubject<void>(1);
 
   readonly user = this.currentUser.asReadonly();
   readonly isLoggedIn = computed(() => this.currentUser() !== null);
+  readonly isAdmin = computed(() => this.currentUser()?.roles.includes('ADMIN') ?? false);
 
   login(request: LoginRequest): Observable<SessionUser> {
     return this.http
@@ -41,7 +43,16 @@ export class AuthService {
         this.clearSession();
         return of(null);
       }),
+      finalize(() => this.restored.next()),
     );
+  }
+
+  whenRestored(): Observable<void> {
+    return this.restored.pipe(take(1));
+  }
+
+  updateSessionUser(response: UserResponse): SessionUser {
+    return this.startSession(response);
   }
 
   refresh(): Observable<SessionUser> {
@@ -67,6 +78,7 @@ export class AuthService {
       firstName: response.firstName,
       lastName: response.lastName,
       email: response.email,
+      phoneNumber: response.phoneNumber,
       roles: response.roles,
     };
     this.currentUser.set(user);
