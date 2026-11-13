@@ -63,7 +63,7 @@ class UserMapperTest {
     void toUserResponse_mapsUserFields() {
         var response = userMapper.toUserResponse(user());
         assertThat(response).isEqualTo(new UserResponseDto(
-                ID.toString(), FIRST_NAME, LAST_NAME, EMAIL, List.of("RIDER", "USER")));
+                ID.toString(), FIRST_NAME, LAST_NAME, EMAIL, List.of("RIDER", "USER"), "+254707127309", UserStatus.ACTIVE));
     }
 
     private RegistrationRequestDto registrationRequest() {
@@ -77,6 +77,7 @@ class UserMapperTest {
                 .email(EMAIL)
                 .firstName(FIRST_NAME)
                 .lastName(LAST_NAME)
+                .phoneNumber("+254707127309")
                 .passwordHash("hashed")
                 .roles(Set.of(Role.USER, Role.RIDER))
                 .status(UserStatus.ACTIVE)

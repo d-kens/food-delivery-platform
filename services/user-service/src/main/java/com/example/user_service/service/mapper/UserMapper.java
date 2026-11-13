@@ -21,6 +21,7 @@ public interface UserMapper {
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "deletedAt", ignore = true)
     User toUserEntity(RegistrationRequestDto request);
 
     RegistrationResponseDto toRegistrationResponse(User user);

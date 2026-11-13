@@ -1,5 +1,6 @@
 package com.example.user_service.controller;
 
+import com.example.user_service.common.UserStatus;
 import com.example.user_service.dto.AuthRequestDto;
 import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.dto.RegistrationRequestDto;
@@ -179,7 +180,7 @@ class AuthenticationControllerTest {
                                 "Doe",
                                 "jane.doe@gmail.com",
                                 List.of("USER")
-                        ),
+                        , null, UserStatus.ACTIVE),
                         "access-token",
                         "refresh-token"
                 )
@@ -267,7 +268,7 @@ class AuthenticationControllerTest {
                 "Doe",
                 "jane.doe@gmail.com",
                 List.of("USER")
-        );
+        , null, UserStatus.ACTIVE);
 
         when(authenticationService.refreshToken(refreshToken)).thenReturn(new RefreshResult(authResponse, "access-token"));
         when(accessTokenCookieService.createAccessTokenCookie("access-token")).thenReturn(

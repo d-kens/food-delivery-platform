@@ -6,7 +6,7 @@ import {
   provideAppInitializer,
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
-import { provideRouter, withInMemoryScrolling } from '@angular/router';
+import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
 import { provideNgIconsConfig } from '@ng-icons/core';
 import { routes } from './app.routes';
 import { authRefreshInterceptor } from './core/auth/auth-refresh.interceptor';
@@ -21,6 +21,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(
       routes,
       withInMemoryScrolling({ anchorScrolling: 'enabled', scrollPositionRestoration: 'enabled' }),
+      withComponentInputBinding(),
     ),
     provideHttpClient(withFetch(), withInterceptors([authRefreshInterceptor])),
     provideAppInitializer(() => {

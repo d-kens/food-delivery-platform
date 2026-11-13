@@ -46,6 +46,7 @@ export class Header {
 
   protected readonly menuOpen = signal(false);
   protected readonly user = this.auth.user;
+  protected readonly isAdmin = this.auth.isAdmin;
   protected readonly initials = computed(() => {
     const user = this.user();
     return user ? `${user.firstName[0] ?? ''}${user.lastName[0] ?? ''}`.toUpperCase() : '';

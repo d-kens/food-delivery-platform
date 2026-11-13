@@ -1,5 +1,7 @@
 package com.example.user_service.dto;
 
+import com.example.user_service.common.UserStatus;
+
 import java.util.List;
 
 public record UserResponseDto(
@@ -7,6 +9,8 @@ public record UserResponseDto(
         String firstName,
         String lastName,
         String email,
-        List<String> roles
+        List<String> roles,
+        String phoneNumber,
+        UserStatus status
 ) {
 }

@@ -12,6 +12,8 @@ const USER: UserResponse = {
   lastName: 'Doe',
   email: 'jane.doe@gmail.com',
   roles: ['USER'],
+  phoneNumber: null,
+  status: 'ACTIVE',
 };
 
 const UNAUTHORIZED = { status: 401, statusText: 'Unauthorized' };

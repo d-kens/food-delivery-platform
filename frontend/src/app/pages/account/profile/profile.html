@@ -1,0 +1,114 @@
+<h2 class="text-lg font-semibold">Profile</h2>
+<p class="mt-1 text-sm text-zinc-600">Update your name and contact details.</p>
+
+@if (saved()) {
+  <p
+    class="mt-5 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-800 ring-1 ring-emerald-200"
+    role="status"
+  >
+    Profile saved.
+  </p>
+}
+
+@if (formError()) {
+  <p
+    class="mt-5 rounded-lg bg-red-50 px-3.5 py-2.5 text-sm text-red-800 ring-1 ring-red-200"
+    role="alert"
+  >
+    {{ formError() }}
+  </p>
+}
+
+<form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="mt-6 space-y-1">
+  <div class="grid gap-x-4 sm:grid-cols-2">
+    <div>
+      <label for="firstName" class="form-label">First name</label>
+      <input
+        id="firstName"
+        formControlName="firstName"
+        autocomplete="given-name"
+        class="form-input"
+        aria-describedby="firstName-message"
+        [attr.aria-invalid]="error('firstName') ? true : null"
+      />
+      <app-field-message fieldId="firstName" [error]="error('firstName')" />
+    </div>
+
+    <div>
+      <label for="lastName" class="form-label">Last name</label>
+      <input
+        id="lastName"
+        formControlName="lastName"
+        autocomplete="family-name"
+        class="form-input"
+        aria-describedby="lastName-message"
+        [attr.aria-invalid]="error('lastName') ? true : null"
+      />
+      <app-field-message fieldId="lastName" [error]="error('lastName')" />
+    </div>
+  </div>
+
+  <div>
+    <label for="email" class="form-label">Email</label>
+    <input
+      id="email"
+      type="email"
+      formControlName="email"
+      autocomplete="email"
+      autocapitalize="none"
+      spellcheck="false"
+      class="form-input"
+      aria-describedby="email-message"
+      [attr.aria-invalid]="error('email') ? true : null"
+    />
+    <app-field-message fieldId="email" [error]="error('email')" />
+  </div>
+
+  @if (emailChanged()) {
+    <div>
+      <label for="currentPassword" class="form-label">Current password</label>
+      <input
+        id="currentPassword"
+        type="password"
+        formControlName="currentPassword"
+        autocomplete="current-password"
+        class="form-input"
+        aria-describedby="currentPassword-message"
+        [attr.aria-invalid]="error('currentPassword') ? true : null"
+      />
+      <app-field-message
+        fieldId="currentPassword"
+        [error]="error('currentPassword')"
+        hint="Needed to confirm it's you before changing your email"
+      />
+    </div>
+  }
+
+  <div>
+    <label for="phoneNumber" class="form-label"
+      >Phone number <span class="font-normal text-zinc-500">(optional)</span></label
+    >
+    <input
+      id="phoneNumber"
+      type="tel"
+      formControlName="phoneNumber"
+      autocomplete="tel"
+      placeholder="+254712345678"
+      class="form-input"
+      aria-describedby="phoneNumber-message"
+      [attr.aria-invalid]="error('phoneNumber') ? true : null"
+    />
+    <app-field-message fieldId="phoneNumber" [error]="error('phoneNumber')" />
+  </div>
+
+  <div class="pt-3 sm:w-48">
+    <button type="submit" class="btn-primary gap-2" [disabled]="submitting()">
+      @if (submitting()) {
+        <app-spinner />
+        Saving…
+      } @else {
+        Save changes
+      }
+    </button>
+  </div>
+</form>
