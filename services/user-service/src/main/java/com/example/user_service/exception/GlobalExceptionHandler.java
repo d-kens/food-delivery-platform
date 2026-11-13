@@ -28,6 +28,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(UserNotFoundException.class)
+    public ProblemDetail handleUserNotFoundException(UserNotFoundException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        problem.setTitle("User Not Found");
+        return problem;
+    }
+
     @ExceptionHandler(InvalidCredentialException.class)
     public ProblemDetail handleInvalidCredentialException(InvalidCredentialException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
@@ -46,6 +53,27 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ProblemDetail handleEmailAlreadyExists(EmailAlreadyExistsException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
         problem.setTitle("Email already exists");
+        return problem;
+    }
+
+    @ExceptionHandler(PhoneNumberAlreadyExistsException.class)
+    public ProblemDetail handlePhoneNumberAlreadyExists(PhoneNumberAlreadyExistsException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        problem.setTitle("Phone number already exists");
+        return problem;
+    }
+
+    @ExceptionHandler(OwnStatusChangeException.class)
+    public ProblemDetail handleOwnStatusChange(OwnStatusChangeException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        problem.setTitle("Cannot change own status");
+        return problem;
+    }
+
+    @ExceptionHandler(InvalidCurrentPasswordException.class)
+    public ProblemDetail handleInvalidCurrentPassword(InvalidCurrentPasswordException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        problem.setTitle("Invalid current password");
         return problem;
     }
 

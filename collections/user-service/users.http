@@ -1,0 +1,37 @@
+### List users (admin only; log in as an admin first so the access_token cookie is set)
+GET {{baseUrl}}/users?page=0&size=20
+
+### List users with filters
+GET {{baseUrl}}/users?status=ACTIVE&role=RIDER&search=jane&page=0&size=20
+
+### Get user by id (admin only)
+GET {{baseUrl}}/users/00000000-0000-0000-0000-000000000000
+
+### Suspend user (admin only; needs the XSRF header)
+PATCH {{baseUrl}}/users/00000000-0000-0000-0000-000000000000/status
+Content-Type: application/json
+X-XSRF-TOKEN: {{xsrf}}
+
+{
+  "status": "SUSPENDED"
+}
+
+### Update my details (all fields optional)
+PATCH {{baseUrl}}/users/me
+Content-Type: application/json
+X-XSRF-TOKEN: {{xsrf}}
+
+{
+  "firstName": "Janet",
+  "phoneNumber": "+254707127309"
+}
+
+### Change my email (current password required)
+PATCH {{baseUrl}}/users/me
+Content-Type: application/json
+X-XSRF-TOKEN: {{xsrf}}
+
+{
+  "email": "janet.doe@gmail.com",
+  "currentPassword": "password123"
+}

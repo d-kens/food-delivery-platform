@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -55,5 +56,10 @@ public class RefreshTokenService {
         refreshTokenRepository.findByTokenHash(refreshTokenGenerator.hash(rawToken))
                 .filter(refreshToken -> !refreshToken.isRevoked())
                 .ifPresent(refreshToken -> refreshToken.setRevokedAt(Instant.now()));
+    }
+
+    @Transactional
+    public void revokeAllFor(final UUID userId) {
+        refreshTokenRepository.revokeAllActiveForUser(userId, Instant.now());
     }
 }
