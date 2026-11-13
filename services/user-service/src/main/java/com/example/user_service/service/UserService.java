@@ -3,6 +3,7 @@ package com.example.user_service.service;
 import com.example.user_service.common.Role;
 import com.example.user_service.common.UserStatus;
 import com.example.user_service.dto.ChangePasswordRequestDto;
+import com.example.user_service.dto.DeleteAccountRequestDto;
 import com.example.user_service.dto.PageResponseDto;
 import com.example.user_service.dto.UpdateUserRequestDto;
 import com.example.user_service.dto.UserResponseDto;
@@ -10,9 +11,11 @@ import com.example.user_service.entity.User;
 import com.example.user_service.exception.AccountNotFoundException;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.InvalidCurrentPasswordException;
+import com.example.user_service.exception.InvalidStatusChangeException;
 import com.example.user_service.exception.OwnRoleChangeException;
 import com.example.user_service.exception.OwnStatusChangeException;
 import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
+import com.example.user_service.exception.UserDeletedException;
 import com.example.user_service.exception.UserNotFoundException;
 import com.example.user_service.exception.UserSuspendedException;
 import com.example.user_service.repository.UserRepository;
@@ -24,6 +27,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 
@@ -101,12 +105,15 @@ public class UserService {
 
     @Transactional
     public void updateUserStatus(final UUID actorId, final UUID userId, final UserStatus status) {
+        if (status == UserStatus.DELETED) {
+            throw new InvalidStatusChangeException("Accounts can only be deleted by their owner");
+        }
+
         if (actorId.equals(userId)) {
             throw new OwnStatusChangeException();
         }
 
-        var user = userRepository.findById(userId)
-                .orElseThrow(UserNotFoundException::new);
+        var user = findNotDeletedUser(userId);
 
         user.setStatus(status);
 
@@ -121,8 +128,7 @@ public class UserService {
             throw new OwnRoleChangeException();
         }
 
-        var user = userRepository.findById(userId)
-                .orElseThrow(UserNotFoundException::new);
+        var user = findNotDeletedUser(userId);
 
         user.getRoles().clear();
         user.getRoles().addAll(roles);
@@ -130,8 +136,40 @@ public class UserService {
         return userMapper.toUserResponse(user);
     }
 
+    @Transactional
+    public void deleteCurrentUser(final UUID userId, final DeleteAccountRequestDto request) {
+        var user = findActiveUser(userId);
+
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw new InvalidCurrentPasswordException("Current password is incorrect");
+        }
+
+        user.setEmail("deleted-" + userId + "@deleted.invalid");
+        user.setPhoneNumber(null);
+        user.setFirstName("Deleted");
+        user.setLastName("User");
+        user.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
+        user.getRoles().clear();
+        user.setStatus(UserStatus.DELETED);
+        user.setDeletedAt(Instant.now());
+
+        refreshTokenService.revokeAllFor(userId);
+    }
+
+    private User findNotDeletedUser(final UUID userId) {
+        var user = userRepository.findById(userId)
+                .orElseThrow(UserNotFoundException::new);
+
+        if (user.getStatus() == UserStatus.DELETED) {
+            throw new UserDeletedException();
+        }
+
+        return user;
+    }
+
     private User findActiveUser(final UUID userId) {
         var user = userRepository.findById(userId)
+                .filter(found -> found.getStatus() != UserStatus.DELETED)
                 .orElseThrow(AccountNotFoundException::new);
 
         if (user.getStatus() != UserStatus.ACTIVE) {

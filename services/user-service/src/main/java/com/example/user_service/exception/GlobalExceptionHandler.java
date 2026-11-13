@@ -77,6 +77,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(UserDeletedException.class)
+    public ProblemDetail handleUserDeleted(UserDeletedException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        problem.setTitle("Account deleted");
+        return problem;
+    }
+
+    @ExceptionHandler(InvalidStatusChangeException.class)
+    public ProblemDetail handleInvalidStatusChange(InvalidStatusChangeException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        problem.setTitle("Invalid status change");
+        return problem;
+    }
+
     @ExceptionHandler(InvalidCurrentPasswordException.class)
     public ProblemDetail handleInvalidCurrentPassword(InvalidCurrentPasswordException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());

@@ -3,6 +3,7 @@ package com.example.user_service.controller;
 import com.example.user_service.common.Role;
 import com.example.user_service.common.UserStatus;
 import com.example.user_service.dto.ChangePasswordRequestDto;
+import com.example.user_service.dto.DeleteAccountRequestDto;
 import com.example.user_service.dto.PageResponseDto;
 import com.example.user_service.dto.UpdateUserRequestDto;
 import com.example.user_service.dto.UpdateUserRolesRequestDto;
@@ -20,6 +21,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -70,9 +72,18 @@ public class UserController {
         userService.changePassword(UUID.fromString(jwt.getSubject()), request);
 
         return ResponseEntity.noContent()
-                .header(HttpHeaders.SET_COOKIE,
-                        accessTokenCookieService.clearAccessTokenCookie().toString(),
-                        refreshTokenCookieService.clearRefreshTokenCookie().toString())
+                .header(HttpHeaders.SET_COOKIE, clearedAuthCookies())
+                .build();
+    }
+
+    @DeleteMapping("me")
+    public ResponseEntity<Void> deleteMe(
+            @AuthenticationPrincipal final Jwt jwt,
+            @Valid @RequestBody final DeleteAccountRequestDto request) {
+        userService.deleteCurrentUser(UUID.fromString(jwt.getSubject()), request);
+
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, clearedAuthCookies())
                 .build();
     }
 
@@ -96,5 +107,12 @@ public class UserController {
             @PathVariable final UUID id,
             @Valid @RequestBody final UpdateUserRolesRequestDto request) {
         return userService.updateUserRoles(UUID.fromString(jwt.getSubject()), id, request.roles());
+    }
+
+    private String[] clearedAuthCookies() {
+        return new String[] {
+                accessTokenCookieService.clearAccessTokenCookie().toString(),
+                refreshTokenCookieService.clearRefreshTokenCookie().toString()
+        };
     }
 }

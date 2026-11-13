@@ -4,15 +4,18 @@ import com.example.user_service.common.Role;
 import com.example.user_service.common.UserStatus;
 import com.example.user_service.config.SecurityConfig;
 import com.example.user_service.dto.ChangePasswordRequestDto;
+import com.example.user_service.dto.DeleteAccountRequestDto;
 import com.example.user_service.dto.UpdateUserRequestDto;
 import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.security.AccessTokenCookieService;
 import com.example.user_service.security.RefreshTokenCookieService;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.InvalidCurrentPasswordException;
+import com.example.user_service.exception.InvalidStatusChangeException;
 import com.example.user_service.exception.OwnRoleChangeException;
 import com.example.user_service.exception.OwnStatusChangeException;
 import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
+import com.example.user_service.exception.UserDeletedException;
 import com.example.user_service.exception.UserNotFoundException;
 import com.example.user_service.dto.PageResponseDto;
 import com.example.user_service.service.UserService;
@@ -50,6 +53,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.mockito.Mockito.doThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -416,6 +420,85 @@ class UserControllerTest {
                         .with(admin()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail").value("You cannot change your own roles"));
+    }
+
+    @Test
+    void deleteMe_returnsNoContentAndClearsAuthCookies() throws Exception {
+        var id = UUID.randomUUID();
+
+        mockMvc.perform(delete(USERS_URL + "/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\": \"OldPassw0rd!\"}")
+                        .with(user(id)))
+                .andExpect(status().isNoContent())
+                .andExpect(header().stringValues(HttpHeaders.SET_COOKIE, hasItems(
+                        allOf(startsWith("access_token="), containsString("Max-Age=0")),
+                        allOf(startsWith("refresh_token="), containsString("Max-Age=0")))));
+
+        verify(userService).deleteCurrentUser(id, new DeleteAccountRequestDto("OldPassw0rd!"));
+    }
+
+    @Test
+    void deleteMe_returnsBadRequest_whenCurrentPasswordWrong() throws Exception {
+        doThrow(new InvalidCurrentPasswordException("Current password is incorrect"))
+                .when(userService).deleteCurrentUser(any(), any());
+
+        mockMvc.perform(delete(USERS_URL + "/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\": \"wrong\"}")
+                        .with(user(UUID.randomUUID())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Current password is incorrect"))
+                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
+    }
+
+    @Test
+    void deleteMe_returnsBadRequest_whenCurrentPasswordMissing() throws Exception {
+        mockMvc.perform(delete(USERS_URL + "/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}")
+                        .with(user(UUID.randomUUID())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.currentPassword").exists());
+
+        verify(userService, never()).deleteCurrentUser(any(), any());
+    }
+
+    @Test
+    void deleteMe_returnsUnauthorized_withoutToken() throws Exception {
+        mockMvc.perform(delete(USERS_URL + "/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\": \"OldPassw0rd!\"}"))
+                .andExpect(status().isUnauthorized());
+
+        verify(userService, never()).deleteCurrentUser(any(), any());
+    }
+
+    @Test
+    void updateStatus_returnsBadRequest_whenStatusIsDeleted() throws Exception {
+        var id = UUID.randomUUID();
+        doThrow(new InvalidStatusChangeException("Accounts can only be deleted by their owner"))
+                .when(userService).updateUserStatus(ADMIN_ID, id, UserStatus.DELETED);
+
+        mockMvc.perform(patch(USERS_URL + "/" + id + "/status")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\": \"DELETED\"}")
+                        .with(admin()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Accounts can only be deleted by their owner"));
+    }
+
+    @Test
+    void updateStatus_returnsConflict_whenUserIsDeleted() throws Exception {
+        var id = UUID.randomUUID();
+        doThrow(new UserDeletedException()).when(userService).updateUserStatus(ADMIN_ID, id, UserStatus.ACTIVE);
+
+        mockMvc.perform(patch(USERS_URL + "/" + id + "/status")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\": \"ACTIVE\"}")
+                        .with(admin()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Account deleted"));
     }
 
     @Test

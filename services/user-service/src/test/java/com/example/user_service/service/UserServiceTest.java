@@ -3,15 +3,18 @@ package com.example.user_service.service;
 import com.example.user_service.common.Role;
 import com.example.user_service.common.UserStatus;
 import com.example.user_service.dto.ChangePasswordRequestDto;
+import com.example.user_service.dto.DeleteAccountRequestDto;
 import com.example.user_service.dto.UpdateUserRequestDto;
 import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.entity.User;
 import com.example.user_service.exception.AccountNotFoundException;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.InvalidCurrentPasswordException;
+import com.example.user_service.exception.InvalidStatusChangeException;
 import com.example.user_service.exception.OwnRoleChangeException;
 import com.example.user_service.exception.OwnStatusChangeException;
 import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
+import com.example.user_service.exception.UserDeletedException;
 import com.example.user_service.exception.UserNotFoundException;
 import com.example.user_service.exception.UserSuspendedException;
 import com.example.user_service.repository.UserRepository;
@@ -277,6 +280,91 @@ class UserServiceTest {
                 .isInstanceOf(OwnRoleChangeException.class);
 
         verify(userRepository, never()).findById(any());
+    }
+
+    @Test
+    void deleteCurrentUser_anonymisesUserAndRevokesRefreshTokens() {
+        var user = user(UserStatus.ACTIVE);
+        user.setPhoneNumber("+254707127309");
+        user.getRoles().add(Role.USER);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("OldPassw0rd!", "hashed")).thenReturn(true);
+        when(passwordEncoder.encode(anyString())).thenReturn("unusable-hash");
+
+        userService.deleteCurrentUser(USER_ID, new DeleteAccountRequestDto("OldPassw0rd!"));
+
+        assertThat(user.getEmail()).isEqualTo("deleted-" + USER_ID + "@deleted.invalid");
+        assertThat(user.getPhoneNumber()).isNull();
+        assertThat(user.getFirstName()).isEqualTo("Deleted");
+        assertThat(user.getLastName()).isEqualTo("User");
+        assertThat(user.getPasswordHash()).isEqualTo("unusable-hash");
+        assertThat(user.getRoles()).isEmpty();
+        assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
+        assertThat(user.getDeletedAt()).isNotNull();
+        verify(refreshTokenService).revokeAllFor(USER_ID);
+    }
+
+    @Test
+    void deleteCurrentUser_throws_andChangesNothing_whenCurrentPasswordIsWrong() {
+        var user = user(UserStatus.ACTIVE);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.deleteCurrentUser(USER_ID, new DeleteAccountRequestDto("wrong")))
+                .isInstanceOf(InvalidCurrentPasswordException.class)
+                .hasMessage("Current password is incorrect");
+
+        assertThat(user.getEmail()).isEqualTo("jane.doe@gmail.com");
+        assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(user.getDeletedAt()).isNull();
+        verify(refreshTokenService, never()).revokeAllFor(any());
+    }
+
+    @Test
+    void deleteCurrentUser_throwsSuspended_whenUserIsSuspended() {
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user(UserStatus.SUSPENDED)));
+
+        assertThatThrownBy(() -> userService.deleteCurrentUser(USER_ID, new DeleteAccountRequestDto("OldPassw0rd!")))
+                .isInstanceOf(UserSuspendedException.class);
+    }
+
+    @Test
+    void getCurrentUser_throwsAccountNotFound_whenUserIsDeleted() {
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user(UserStatus.DELETED)));
+
+        assertThatThrownBy(() -> userService.getCurrentUser(USER_ID))
+                .isInstanceOf(AccountNotFoundException.class);
+    }
+
+    @Test
+    void updateUserStatus_rejectsDeletedStatus() {
+        assertThatThrownBy(() -> userService.updateUserStatus(ADMIN_ID, USER_ID, UserStatus.DELETED))
+                .isInstanceOf(InvalidStatusChangeException.class)
+                .hasMessage("Accounts can only be deleted by their owner");
+
+        verify(userRepository, never()).findById(any());
+    }
+
+    @Test
+    void updateUserStatus_throwsUserDeleted_whenTargetIsDeleted() {
+        var user = user(UserStatus.DELETED);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> userService.updateUserStatus(ADMIN_ID, USER_ID, UserStatus.ACTIVE))
+                .isInstanceOf(UserDeletedException.class);
+
+        assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
+    }
+
+    @Test
+    void updateUserRoles_throwsUserDeleted_whenTargetIsDeleted() {
+        var user = user(UserStatus.DELETED);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> userService.updateUserRoles(ADMIN_ID, USER_ID, Set.of(Role.ADMIN)))
+                .isInstanceOf(UserDeletedException.class);
+
+        assertThat(user.getRoles()).isEmpty();
     }
 
     @Test

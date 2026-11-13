@@ -24,6 +24,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -361,6 +362,146 @@ class UserControllerIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void deleteMe_anonymisesAccountRevokesSessionsAndClearsCookies() throws Exception {
+        login(JANE_EMAIL);
+        login(JOHN_EMAIL);
+        String accessToken = login(JANE_EMAIL);
+
+        List<String> setCookies = mockMvc.perform(delete(USERS_URL + "/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(deleteAccountJson(PASSWORD)))
+                .andExpect(status().isNoContent())
+                .andReturn()
+                .getResponse()
+                .getHeaders(HttpHeaders.SET_COOKIE);
+
+        assertThat(setCookies)
+                .anySatisfy(cookie -> assertThat(cookie).startsWith("access_token=").contains("Max-Age=0"))
+                .anySatisfy(cookie -> assertThat(cookie).startsWith("refresh_token=").contains("Max-Age=0"));
+
+        var saved = userRepository.findById(jane.getId()).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(UserStatus.DELETED);
+        assertThat(saved.getDeletedAt()).isNotNull();
+        assertThat(saved.getEmail()).isEqualTo("deleted-" + jane.getId() + "@deleted.invalid");
+        assertThat(saved.getPhoneNumber()).isNull();
+        assertThat(saved.getFirstName()).isEqualTo("Deleted");
+        assertThat(saved.getLastName()).isEqualTo("User");
+        assertThat(saved.getRoles()).isEmpty();
+        assertThat(passwordEncoder.matches(PASSWORD, saved.getPasswordHash())).isFalse();
+
+        assertThat(refreshTokenRepository.findAll())
+                .filteredOn(token -> token.getUser().getId().equals(jane.getId()))
+                .isNotEmpty()
+                .allSatisfy(token -> assertThat(token.getRevokedAt()).isNotNull());
+        assertThat(refreshTokenRepository.findAll())
+                .filteredOn(token -> !token.getUser().getId().equals(jane.getId()))
+                .isNotEmpty()
+                .allSatisfy(token -> assertThat(token.getRevokedAt()).isNull());
+
+        mockMvc.perform(get(USERS_URL + "/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post(LOGIN_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson(JANE_EMAIL, PASSWORD)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void deleteMe_freesEmailAndPhoneForReuse() throws Exception {
+        mockMvc.perform(delete(USERS_URL + "/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(JANE_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(deleteAccountJson(PASSWORD)))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(post("/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "%s",
+                                  "password": "%s",
+                                  "firstName": "Jane",
+                                  "lastName": "Doe"
+                                }
+                                """.formatted(JANE_EMAIL, PASSWORD)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(patch(USERS_URL + "/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(JANE_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"phoneNumber\": \"+254707127309\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void deleteMe_returnsBadRequest_andKeepsAccount_whenCurrentPasswordIsWrong() throws Exception {
+        mockMvc.perform(delete(USERS_URL + "/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(JANE_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(deleteAccountJson("Wr0ngPassword!")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Current password is incorrect"));
+
+        var saved = userRepository.findById(jane.getId()).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(saved.getEmail()).isEqualTo(JANE_EMAIL);
+    }
+
+    @Test
+    void deleteMe_withAccessTokenCookie_isRejected_withoutCsrfToken() throws Exception {
+        mockMvc.perform(delete(USERS_URL + "/me")
+                        .cookie(new Cookie("access_token", login(JANE_EMAIL)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(deleteAccountJson(PASSWORD)))
+                .andExpect(status().isForbidden());
+
+        assertThat(userRepository.findById(jane.getId()).orElseThrow().getStatus()).isEqualTo(UserStatus.ACTIVE);
+    }
+
+    @Test
+    void deletedUsers_areListedByStatusFilter_andCannotBeChangedByAdmin() throws Exception {
+        mockMvc.perform(delete(USERS_URL + "/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(JANE_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(deleteAccountJson(PASSWORD)))
+                .andExpect(status().isNoContent());
+        String adminToken = bearer(ADMIN_EMAIL);
+
+        mockMvc.perform(get(USERS_URL).param("status", "DELETED").header(HttpHeaders.AUTHORIZATION, adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[*].userId", containsInAnyOrder(jane.getId().toString())));
+
+        mockMvc.perform(patch(USERS_URL + "/" + jane.getId() + "/status")
+                        .header(HttpHeaders.AUTHORIZATION, adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\": \"ACTIVE\"}"))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(put(USERS_URL + "/" + jane.getId() + "/roles")
+                        .header(HttpHeaders.AUTHORIZATION, adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roles\": [\"ADMIN\"]}"))
+                .andExpect(status().isConflict());
+
+        assertThat(userRepository.findById(jane.getId()).orElseThrow().getStatus()).isEqualTo(UserStatus.DELETED);
+    }
+
+    @Test
+    void updateStatus_returnsBadRequest_whenAdminSetsDeleted() throws Exception {
+        mockMvc.perform(patch(USERS_URL + "/" + john.getId() + "/status")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\": \"DELETED\"}"))
+                .andExpect(status().isBadRequest());
+
+        var saved = userRepository.findById(john.getId()).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(saved.getEmail()).isEqualTo(JOHN_EMAIL);
+    }
+
+    @Test
     void changePassword_updatesPasswordRevokesSessionsAndClearsCookies() throws Exception {
         login(JANE_EMAIL);
         login(JOHN_EMAIL);
@@ -430,6 +571,14 @@ class UserControllerIT extends AbstractIntegrationTest {
 
         var saved = userRepository.findById(jane.getId()).orElseThrow();
         assertThat(passwordEncoder.matches(PASSWORD, saved.getPasswordHash())).isTrue();
+    }
+
+    private String deleteAccountJson(String currentPassword) {
+        return """
+                {
+                  "currentPassword": "%s"
+                }
+                """.formatted(currentPassword);
     }
 
     private String changePasswordJson(String currentPassword, String newPassword) {

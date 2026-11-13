@@ -54,3 +54,12 @@ X-XSRF-TOKEN: {{xsrf}}
 {
   "roles": ["USER", "ADMIN"]
 }
+
+### Delete my account (anonymises it and logs out every device)
+DELETE {{baseUrl}}/users/me
+Content-Type: application/json
+X-XSRF-TOKEN: {{xsrf}}
+
+{
+  "currentPassword": "password123"
+}

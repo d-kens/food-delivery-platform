@@ -116,4 +116,10 @@
         </rollback>
     </changeSet>
 
+    <changeSet id="004-add-deleted-at-to-users" author="d-kens">
+        <addColumn tableName="users">
+            <column name="deleted_at" type="TIMESTAMP WITH TIME ZONE"/>
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>
