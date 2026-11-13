@@ -5,6 +5,7 @@ import com.example.user_service.common.UserStatus;
 import com.example.user_service.dto.ChangePasswordRequestDto;
 import com.example.user_service.dto.PageResponseDto;
 import com.example.user_service.dto.UpdateUserRequestDto;
+import com.example.user_service.dto.UpdateUserRolesRequestDto;
 import com.example.user_service.dto.UpdateUserStatusRequestDto;
 import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.security.AccessTokenCookieService;
@@ -22,6 +23,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -86,5 +88,13 @@ public class UserController {
             @PathVariable final UUID id,
             @Valid @RequestBody final UpdateUserStatusRequestDto request) {
         userService.updateUserStatus(UUID.fromString(jwt.getSubject()), id, request.status());
+    }
+
+    @PutMapping("{id}/roles")
+    public UserResponseDto updateRoles(
+            @AuthenticationPrincipal final Jwt jwt,
+            @PathVariable final UUID id,
+            @Valid @RequestBody final UpdateUserRolesRequestDto request) {
+        return userService.updateUserRoles(UUID.fromString(jwt.getSubject()), id, request.roles());
     }
 }

@@ -73,6 +73,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/users/me").authenticated()
                         .requestMatchers(HttpMethod.GET, "/users", "/users/{id}").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/users/{id}/status").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/users/{id}/roles").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth -> oauth

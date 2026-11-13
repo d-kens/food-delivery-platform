@@ -10,6 +10,7 @@ import com.example.user_service.entity.User;
 import com.example.user_service.exception.AccountNotFoundException;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.InvalidCurrentPasswordException;
+import com.example.user_service.exception.OwnRoleChangeException;
 import com.example.user_service.exception.OwnStatusChangeException;
 import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
 import com.example.user_service.exception.UserNotFoundException;
@@ -23,6 +24,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Set;
 import java.util.UUID;
 
 import static com.example.user_service.repository.UserSpecifications.hasRole;
@@ -111,6 +113,21 @@ public class UserService {
         if (status != UserStatus.ACTIVE) {
             refreshTokenService.revokeAllFor(userId);
         }
+    }
+
+    @Transactional
+    public UserResponseDto updateUserRoles(final UUID actorId, final UUID userId, final Set<Role> roles) {
+        if (actorId.equals(userId)) {
+            throw new OwnRoleChangeException();
+        }
+
+        var user = userRepository.findById(userId)
+                .orElseThrow(UserNotFoundException::new);
+
+        user.getRoles().clear();
+        user.getRoles().addAll(roles);
+
+        return userMapper.toUserResponse(user);
     }
 
     private User findActiveUser(final UUID userId) {

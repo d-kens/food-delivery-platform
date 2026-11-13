@@ -10,6 +10,7 @@ import com.example.user_service.security.AccessTokenCookieService;
 import com.example.user_service.security.RefreshTokenCookieService;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.InvalidCurrentPasswordException;
+import com.example.user_service.exception.OwnRoleChangeException;
 import com.example.user_service.exception.OwnStatusChangeException;
 import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
 import com.example.user_service.exception.UserNotFoundException;
@@ -30,10 +31,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.any;
@@ -332,6 +336,86 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"firstName\": \"Janet\"}"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void updateRoles_returnsUpdatedUser_forAdmin() throws Exception {
+        var id = UUID.randomUUID();
+        when(userService.updateUserRoles(ADMIN_ID, id, Set.of(Role.USER, Role.ADMIN)))
+                .thenReturn(new UserResponseDto(id.toString(), "Jane", "Doe", "jane.doe@gmail.com", List.of("ADMIN", "USER")));
+
+        mockMvc.perform(put(USERS_URL + "/" + id + "/roles")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roles\": [\"USER\", \"ADMIN\"]}")
+                        .with(admin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.roles", containsInAnyOrder("ADMIN", "USER")));
+    }
+
+    @Test
+    void updateRoles_returnsForbidden_forNonAdmin() throws Exception {
+        mockMvc.perform(put(USERS_URL + "/" + UUID.randomUUID() + "/roles")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roles\": [\"ADMIN\"]}")
+                        .with(user(UUID.randomUUID())))
+                .andExpect(status().isForbidden());
+
+        verify(userService, never()).updateUserRoles(any(), any(), any());
+    }
+
+    @Test
+    void updateRoles_returnsUnauthorized_withoutToken() throws Exception {
+        mockMvc.perform(put(USERS_URL + "/" + UUID.randomUUID() + "/roles")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roles\": [\"ADMIN\"]}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void updateRoles_returnsBadRequest_whenRolesEmpty() throws Exception {
+        mockMvc.perform(put(USERS_URL + "/" + UUID.randomUUID() + "/roles")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roles\": []}")
+                        .with(admin()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.roles").exists());
+
+        verify(userService, never()).updateUserRoles(any(), any(), any());
+    }
+
+    @Test
+    void updateRoles_returnsBadRequest_whenRoleUnknown() throws Exception {
+        mockMvc.perform(put(USERS_URL + "/" + UUID.randomUUID() + "/roles")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roles\": [\"SUPERUSER\"]}")
+                        .with(admin()))
+                .andExpect(status().isBadRequest());
+
+        verify(userService, never()).updateUserRoles(any(), any(), any());
+    }
+
+    @Test
+    void updateRoles_returnsNotFound_whenUserMissing() throws Exception {
+        var id = UUID.randomUUID();
+        when(userService.updateUserRoles(ADMIN_ID, id, Set.of(Role.ADMIN))).thenThrow(new UserNotFoundException());
+
+        mockMvc.perform(put(USERS_URL + "/" + id + "/roles")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roles\": [\"ADMIN\"]}")
+                        .with(admin()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void updateRoles_returnsConflict_whenAdminChangesOwnRoles() throws Exception {
+        when(userService.updateUserRoles(ADMIN_ID, ADMIN_ID, Set.of(Role.USER))).thenThrow(new OwnRoleChangeException());
+
+        mockMvc.perform(put(USERS_URL + "/" + ADMIN_ID + "/roles")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roles\": [\"USER\"]}")
+                        .with(admin()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("You cannot change your own roles"));
     }
 
     @Test

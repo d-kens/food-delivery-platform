@@ -27,6 +27,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -294,6 +295,69 @@ class UserControllerIT extends AbstractIntegrationTest {
                 .andExpect(status().isForbidden());
 
         assertThat(userRepository.findById(jane.getId()).orElseThrow().getFirstName()).isEqualTo("Jane");
+    }
+
+    @Test
+    void updateRoles_replacesRolesAndNextLoginCarriesThem() throws Exception {
+        mockMvc.perform(put(USERS_URL + "/" + jane.getId() + "/roles")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roles\": [\"USER\", \"ADMIN\"]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.roles", containsInAnyOrder("USER", "ADMIN")));
+
+        assertThat(userRepository.findById(jane.getId()).orElseThrow().getRoles())
+                .containsExactlyInAnyOrder(Role.USER, Role.ADMIN);
+
+        mockMvc.perform(get(USERS_URL).header(HttpHeaders.AUTHORIZATION, bearer(JANE_EMAIL)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void updateRoles_canRemoveAdmin() throws Exception {
+        var otherAdmin = saveUser("second.admin@gmail.com", "Sam", "Second", null, Role.ADMIN);
+
+        mockMvc.perform(put(USERS_URL + "/" + otherAdmin.getId() + "/roles")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roles\": [\"USER\"]}"))
+                .andExpect(status().isOk());
+
+        assertThat(userRepository.findById(otherAdmin.getId()).orElseThrow().getRoles()).containsExactly(Role.USER);
+
+        mockMvc.perform(get(USERS_URL).header(HttpHeaders.AUTHORIZATION, bearer("second.admin@gmail.com")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void updateRoles_returnsConflict_whenAdminChangesOwnRoles() throws Exception {
+        mockMvc.perform(put(USERS_URL + "/" + admin.getId() + "/roles")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roles\": [\"USER\"]}"))
+                .andExpect(status().isConflict());
+
+        assertThat(userRepository.findById(admin.getId()).orElseThrow().getRoles()).containsExactly(Role.ADMIN);
+    }
+
+    @Test
+    void updateRoles_returnsForbidden_forRegularUser() throws Exception {
+        mockMvc.perform(put(USERS_URL + "/" + jane.getId() + "/roles")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(JANE_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roles\": [\"ADMIN\"]}"))
+                .andExpect(status().isForbidden());
+
+        assertThat(userRepository.findById(jane.getId()).orElseThrow().getRoles()).containsExactly(Role.USER);
+    }
+
+    @Test
+    void updateRoles_returnsNotFound_whenUserMissing() throws Exception {
+        mockMvc.perform(put(USERS_URL + "/" + UUID.randomUUID() + "/roles")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roles\": [\"ADMIN\"]}"))
+                .andExpect(status().isNotFound());
     }
 
     @Test

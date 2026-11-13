@@ -9,6 +9,7 @@ import com.example.user_service.entity.User;
 import com.example.user_service.exception.AccountNotFoundException;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.InvalidCurrentPasswordException;
+import com.example.user_service.exception.OwnRoleChangeException;
 import com.example.user_service.exception.OwnStatusChangeException;
 import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
 import com.example.user_service.exception.UserNotFoundException;
@@ -29,6 +30,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -245,6 +247,36 @@ class UserServiceTest {
         assertThatThrownBy(() -> userService.updateCurrentUser(USER_ID,
                 new UpdateUserRequestDto("Janet", null, null, null, null)))
                 .isInstanceOf(UserSuspendedException.class);
+    }
+
+    @Test
+    void updateUserRoles_replacesRolesAndReturnsMappedUser() {
+        var user = user(UserStatus.ACTIVE);
+        user.getRoles().add(Role.RIDER);
+        var expected = new UserResponseDto(USER_ID.toString(), "Jane", "Doe", "jane.doe@gmail.com", List.of("ADMIN", "USER"));
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(userMapper.toUserResponse(user)).thenReturn(expected);
+
+        var result = userService.updateUserRoles(ADMIN_ID, USER_ID, Set.of(Role.USER, Role.ADMIN));
+
+        assertThat(result).isSameAs(expected);
+        assertThat(user.getRoles()).containsExactlyInAnyOrder(Role.USER, Role.ADMIN);
+    }
+
+    @Test
+    void updateUserRoles_throwsUserNotFound_whenMissing() {
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.updateUserRoles(ADMIN_ID, USER_ID, Set.of(Role.ADMIN)))
+                .isInstanceOf(UserNotFoundException.class);
+    }
+
+    @Test
+    void updateUserRoles_throws_whenAdminChangesOwnRoles() {
+        assertThatThrownBy(() -> userService.updateUserRoles(ADMIN_ID, ADMIN_ID, Set.of(Role.USER)))
+                .isInstanceOf(OwnRoleChangeException.class);
+
+        verify(userRepository, never()).findById(any());
     }
 
     @Test
