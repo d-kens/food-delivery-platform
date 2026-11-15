@@ -1,19 +1,14 @@
 # Notification Service
 
-Turns events into out-of-app messages for users: simulated SMS, email and web push. Live in-app updates are pushed by the Location Service over WebSocket. It contains no business rules; it only formats and sends.
+Turns domain events into out-of-app messages (email, SMS, push) through [Novu](https://novu.co). Live in-app updates are pushed by the Location Service over WebSocket.
 
-**Gateway prefix:** `/api/notifications`
+It has no database, no REST API and no business rules. Content, channels, user preferences and delivery logs live in Novu.
 
-## Responsibilities
+## How it works
 
-- Listen to account and order events and pick the right template
-- Send simulated SMS and email (logged) and real web push to the rider PWA
-- Respect each user's notification preferences
-- Keep a log of sent notifications
-
-## Data it owns
-
-`notification_db`: `templates`, `notification_log`, `preferences`, `push_subscriptions`, `processed_events`.
+1. Consumes events from Kafka.
+2. User events keep Novu subscribers in sync (subscriber ID = user ID).
+3. Other events trigger the matching Novu workflow for the user.
 
 ## Events
 
@@ -21,15 +16,20 @@ Turns events into out-of-app messages for users: simulated SMS, email and web pu
 
 - None
 
-**Listens to**
+**Listens to** (`user-events`)
 
-- `UserRegistered` — welcome or "application received"
-- `UserStatusChanged` — rider or account "you're approved" or "suspended"
-- `RestaurantCreated` — "restaurant application received", sent to the owner
-- `RestaurantStatusChanged` — "your restaurant is approved" or "suspended", sent to its owners
-- `OrderPlaced / OrderAccepted / OrderPickedUp / OrderDelivered` — order progress messages
-- `OrderCancelled / RefundCompleted` — cancellation and refund messages
+| Event | Action |
+|---|---|
+| `UserRegistered` | Create subscriber, then `welcome` |
+| `UserUpdated` | Update subscriber |
+| `UserStatusChanged` | `account-status-changed` |
+| `PasswordResetRequested` | `password-reset` |
+| `PasswordChanged` | `password-changed` |
 
-## Calls other services
+Workflow IDs must exist in Novu. Order, restaurant and payment events are added as those services are built.
 
-- User: `GET /internal/users/{id}` (contact details for any user)
+## Configuration
+
+| Variable | Description |
+|---|---|
+| `NOVU_SECRET` | Novu API secret key |
