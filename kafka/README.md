@@ -100,7 +100,19 @@ kbin kafka-consumer-groups.sh --delete --group demo         # removes the group 
 | 4 | Stop the group, send messages, `--describe`, start it again | Lag, then catching up |
 | 5 | Reset the group to earliest | Replay |
 
-## 8. Reset everything
+## 8. Web UI (Redpanda Console)
+
+```bash
+docker compose up -d redpanda-console
+```
+
+Open http://localhost:8090.
+
+- **Produce:** Topics → `user-events` → Actions → Produce Record. Set the key and paste the JSON value.
+- **Browse:** Topics → `user-events` → Messages.
+- **Consumer groups:** lag per partition, and Edit Group Offsets to skip or replay (stop the app first).
+
+## 9. Reset everything
 
 Stops and removes the container, then deletes all topics, messages and offsets:
 
