@@ -10,7 +10,7 @@ It has no database, no REST API and no business rules. Content, channels, user p
 2. The service creates or updates the recipient as a Novu subscriber (subscriber ID = user ID).
 3. It triggers the Novu workflow for the notification `type`.
 
-Invalid messages, and messages that still fail after retries, go to `notifications.notification-service.DLT`.
+Invalid messages, and messages that still fail after retries, go to `notifications.DLT`.
 
 ## Message
 

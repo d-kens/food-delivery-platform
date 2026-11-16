@@ -24,23 +24,22 @@ public class KafkaErrorHandlerConfig {
 
     @Bean
     DefaultErrorHandler kafkaErrorHandler(KafkaOperations<?, ?> kafkaTemplate,
-                                          @Value("${spring.kafka.consumer.group-id}") String groupId) {
+                                          @Value("${kafka.topics.notifications}.DLT") String deadLetterTopic) {
         var recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate,
-                (record, ex) -> new TopicPartition(deadLetterTopic(record.topic(), groupId), -1));
+                (record, ex) -> new TopicPartition(deadLetterTopic, -1));
 
         var handler = new DefaultErrorHandler(recoverer, retryBackOff());
         handler.addNotRetryableExceptions(JacksonException.class, InvalidNotificationException.class);
-        handler.setRetryListeners(loggingListener(groupId));
+        handler.setRetryListeners(loggingListener(deadLetterTopic));
         return handler;
     }
 
     @Bean
-    NewTopic notificationsDeadLetterTopic(@Value("${kafka.topics.notifications}") String topic,
-                                          @Value("${spring.kafka.consumer.group-id}") String groupId) {
-        return TopicBuilder.name(deadLetterTopic(topic, groupId)).partitions(1).build();
+    NewTopic notificationsDeadLetterTopic(@Value("${kafka.topics.notifications}.DLT") String deadLetterTopic) {
+        return TopicBuilder.name(deadLetterTopic).partitions(1).build();
     }
 
-    private static RetryListener loggingListener(String groupId) {
+    private static RetryListener loggingListener(String deadLetterTopic) {
         return new RetryListener() {
             @Override
             public void failedDelivery(ConsumerRecord<?, ?> record, Exception ex, int deliveryAttempt) {
@@ -49,7 +48,7 @@ public class KafkaErrorHandlerConfig {
 
             @Override
             public void recovered(ConsumerRecord<?, ?> record, Exception ex) {
-                log.error("Dead-lettered {} to {}", KafkaUtils.format(record), deadLetterTopic(record.topic(), groupId), ex);
+                log.error("Dead-lettered {} to {}", KafkaUtils.format(record), deadLetterTopic, ex);
             }
         };
     }
@@ -59,9 +58,5 @@ public class KafkaErrorHandlerConfig {
         backOff.setJitter(500);
         backOff.setMaxAttempts(4);
         return backOff;
-    }
-
-    static String deadLetterTopic(String topic, String groupId) {
-        return topic + "." + groupId + ".DLT";
     }
 }

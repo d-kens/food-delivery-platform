@@ -27,7 +27,7 @@ import static org.mockito.Mockito.when;
 
 class KafkaErrorHandlerConfigTest {
 
-    private static final String DLT = "notifications.notification-service.DLT";
+    private static final String DLT = "notifications.DLT";
 
     private KafkaOperations<Object, Object> template;
     private DefaultErrorHandler handler;
@@ -37,7 +37,7 @@ class KafkaErrorHandlerConfigTest {
     void setUp() {
         template = mock(KafkaOperations.class);
         when(template.send(any(ProducerRecord.class))).thenReturn(CompletableFuture.completedFuture(null));
-        handler = new KafkaErrorHandlerConfig().kafkaErrorHandler(template, "notification-service");
+        handler = new KafkaErrorHandlerConfig().kafkaErrorHandler(template, DLT);
     }
 
     private boolean failOnce(Throwable cause) {
@@ -67,11 +67,6 @@ class KafkaErrorHandlerConfigTest {
     void novuErrors_areRetried() {
         assertThat(failOnce(novu(400))).isFalse();
         verify(template, never()).send(any(ProducerRecord.class));
-    }
-
-    @Test
-    void deadLetterTopic_isTopicGroupDlt() {
-        assertThat(KafkaErrorHandlerConfig.deadLetterTopic("notifications", "notification-service")).isEqualTo(DLT);
     }
 
     @Test
