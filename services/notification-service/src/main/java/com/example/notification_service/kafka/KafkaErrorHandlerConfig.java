@@ -9,10 +9,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
+import org.springframework.kafka.core.KafkaAdmin;
 import org.springframework.kafka.core.KafkaOperations;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.RetryListener;
+import org.springframework.kafka.support.KafkaUtils;
 import org.springframework.util.backoff.BackOff;
 import org.springframework.util.backoff.ExponentialBackOff;
 import org.springframework.util.backoff.FixedBackOff;
@@ -22,7 +24,6 @@ import tools.jackson.core.JacksonException;
 @Configuration
 public class KafkaErrorHandlerConfig {
 
-    // Retries failed records, then publishes them to <topic>.<group>.DLT instead of dropping them.
     @Bean
     DefaultErrorHandler kafkaErrorHandler(KafkaOperations<?, ?> kafkaTemplate,
                                           @Value("${spring.kafka.consumer.group-id}") String groupId) {
@@ -30,15 +31,16 @@ public class KafkaErrorHandlerConfig {
                 (record, ex) -> new TopicPartition(deadLetterTopic(record.topic(), groupId), -1));
 
         var handler = new DefaultErrorHandler(recoverer, retryBackOff());
-        // Permanent errors skip retries and go straight to the DLT.
         handler.setBackOffFunction((record, ex) -> isPermanent(ex) ? new FixedBackOff(0, 0) : null);
         handler.setRetryListeners(loggingListener(groupId));
         return handler;
     }
 
     @Bean
-    NewTopic userEventsDeadLetterTopic(KafkaTopics topics, @Value("${spring.kafka.consumer.group-id}") String groupId) {
-        return TopicBuilder.name(deadLetterTopic(topics.userEvents(), groupId)).partitions(1).build();
+    KafkaAdmin.NewTopics deadLetterTopics(KafkaTopics topics, @Value("${spring.kafka.consumer.group-id}") String groupId) {
+        return new KafkaAdmin.NewTopics(topics.all().stream()
+                .map(topic -> TopicBuilder.name(deadLetterTopic(topic, groupId)).partitions(1).build())
+                .toArray(NewTopic[]::new));
     }
 
     private static RetryListener loggingListener(String groupId) {
@@ -46,35 +48,29 @@ public class KafkaErrorHandlerConfig {
             @Override
             public void failedDelivery(ConsumerRecord<?, ?> record, Exception ex, int deliveryAttempt) {
                 if (!isPermanent(ex)) {
-                    log.warn("Attempt {} failed for {}: {}", deliveryAttempt, location(record), reason(ex));
+                    log.warn("Attempt {} failed for {}: {}", deliveryAttempt, KafkaUtils.format(record), reason(ex));
                 }
             }
 
             @Override
             public void recovered(ConsumerRecord<?, ?> record, Exception ex) {
                 log.warn("Dead-lettered {} to {}: {}",
-                        location(record), deadLetterTopic(record.topic(), groupId), reason(ex));
+                        KafkaUtils.format(record), deadLetterTopic(record.topic(), groupId), reason(ex));
             }
         };
-    }
-
-    static String location(ConsumerRecord<?, ?> record) {
-        return record.topic() + "-" + record.partition() + "@" + record.offset();
     }
 
     static String reason(Throwable ex) {
         Throwable root = ex;
         for (Throwable t = ex; t != null; t = t.getCause()) {
             if (t instanceof NovuException novu) {
-                String body = novu.bodyAsString().orElse("");
-                return "Novu " + novu.code() + " " + (body.length() > 300 ? body.substring(0, 300) + "..." : body);
+                return "Novu " + novu.code() + " " + novu.bodyAsString().orElse("");
             }
             root = t;
         }
         return root.getClass().getSimpleName() + ": " + root.getMessage();
     }
 
-    // Waits about 1s, 2s, 4s, 8s between retries, randomised so consumers don't retry in lockstep.
     static BackOff retryBackOff() {
         var backOff = new ExponentialBackOff(1_000, 2.0);
         backOff.setJitter(500);
@@ -86,7 +82,6 @@ public class KafkaErrorHandlerConfig {
         return topic + "." + groupId + ".DLT";
     }
 
-    // Errors that will fail again on retry: bad JSON, missing fields, Novu 4xx (except 408/409/429).
     static boolean isPermanent(Throwable ex) {
         for (Throwable t = ex; t != null; t = t.getCause()) {
             if (t instanceof JacksonException || t instanceof IllegalArgumentException) {

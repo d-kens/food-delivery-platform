@@ -1,7 +1,6 @@
 package com.example.notification_service.kafka;
 
 import co.novu.models.errors.APIException;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
 import org.springframework.kafka.listener.ListenerExecutionFailedException;
 import org.springframework.util.backoff.BackOffExecution;
@@ -73,12 +72,6 @@ class KafkaErrorHandlerConfigTest {
     @Test
     void networkErrors_areRetried() {
         assertThat(KafkaErrorHandlerConfig.isPermanent(wrapped(new UncheckedIOException(new IOException("timeout"))))).isFalse();
-    }
-
-    @Test
-    void location_isTopicPartitionOffset() {
-        assertThat(KafkaErrorHandlerConfig.location(new ConsumerRecord<>("user-events", 2, 7L, "k", "v")))
-                .isEqualTo("user-events-2@7");
     }
 
     @Test
