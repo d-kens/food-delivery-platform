@@ -4,6 +4,7 @@ import co.novu.Novu;
 import co.novu.models.components.CreateSubscriberRequestDto;
 import co.novu.models.components.TriggerEventRequestDto;
 import co.novu.models.components.TriggerEventRequestDtoTo2;
+import com.example.notification_service.notification.Recipient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -15,13 +16,13 @@ public class NovuClient {
 
     private final Novu novu;
 
-    public void upsertSubscriber(Subscriber subscriber) {
+    public void upsertSubscriber(Recipient recipient) {
         var request = CreateSubscriberRequestDto.builder()
-                .subscriberId(subscriber.id())
-                .firstName(subscriber.firstName())
-                .lastName(subscriber.lastName())
-                .email(subscriber.email())
-                .phone(subscriber.phone())
+                .subscriberId(recipient.id())
+                .firstName(recipient.firstName())
+                .lastName(recipient.lastName())
+                .email(recipient.email())
+                .phone(recipient.phone())
                 .build();
 
         novu.subscribers().create()
@@ -30,9 +31,9 @@ public class NovuClient {
                 .call();
     }
 
-    public void trigger(NotificationWorkflow workflow, String subscriberId, Map<String, Object> payload, String transactionId) {
+    public void trigger(String workflowId, String subscriberId, Map<String, Object> payload, String transactionId) {
         var request = TriggerEventRequestDto.builder()
-                .workflowId(workflow.getWorkflowId())
+                .workflowId(workflowId)
                 .to(TriggerEventRequestDtoTo2.of(subscriberId))
                 .payload(payload)
                 .transactionId(transactionId)

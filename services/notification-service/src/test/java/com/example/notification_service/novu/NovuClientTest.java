@@ -1,6 +1,7 @@
 package com.example.notification_service.novu;
 
 import co.novu.Novu;
+import com.example.notification_service.notification.Recipient;
 import co.novu.models.components.CreateSubscriberRequestDto;
 import co.novu.models.components.TriggerEventRequestDto;
 import co.novu.models.operations.EventsControllerTriggerRequestBuilder;
@@ -44,7 +45,7 @@ class NovuClientTest {
     void trigger_sendsWorkflowToSubscriberWithPayloadAndIdempotencyKey() {
         var payload = Map.<String, Object>of("orderId", "99");
 
-        client.trigger(NotificationWorkflow.PASSWORD_CHANGED, "7", payload, "event-1:7");
+        client.trigger("password-changed", "7", payload, "event-1:7");
 
         var captor = ArgumentCaptor.forClass(TriggerEventRequestDto.class);
         verify(triggerBuilder).idempotencyKey("event-1:7");
@@ -59,7 +60,7 @@ class NovuClientTest {
 
     @Test
     void upsertSubscriber_createsOrUpdatesSubscriber() {
-        client.upsertSubscriber(new Subscriber("42", "Jane", "Doe", "jane@example.com", null));
+        client.upsertSubscriber(new Recipient("42", "Jane", "Doe", "jane@example.com", null));
 
         var captor = ArgumentCaptor.forClass(CreateSubscriberRequestDto.class);
         verify(createBuilder).failIfExists(false);

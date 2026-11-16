@@ -6,14 +6,10 @@ spring:
     consumer:
       group-id: notification-service
       auto-offset-reset: earliest
-    producer:
-      acks: all
-      properties:
-        enable.idempotence: true
 
 kafka:
   topics:
-    user-events: user-events
+    notifications: notifications
 
 novu:
   api:
