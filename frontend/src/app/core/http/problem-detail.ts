@@ -21,3 +21,11 @@ export function isNetworkError(error: unknown): boolean {
 export function statusOf(error: unknown): number | null {
   return error instanceof HttpErrorResponse ? error.status : null;
 }
+
+export const NETWORK_ERROR_MESSAGE =
+  "Can't reach Keroma right now. Check your connection and try again.";
+export const SERVER_ERROR_MESSAGE = 'Something went wrong on our side. Please try again.';
+
+export function genericErrorMessage(error: unknown): string {
+  return isNetworkError(error) ? NETWORK_ERROR_MESSAGE : SERVER_ERROR_MESSAGE;
+}

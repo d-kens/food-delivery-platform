@@ -25,16 +25,13 @@ export const routes: Routes = [
             loadComponent: () => import('./pages/account/profile/profile').then((m) => m.Profile),
           },
           {
-            path: 'password',
-            title: 'Change password | Keroma',
-            loadComponent: () => import('./pages/account/password/password').then((m) => m.Password),
-          },
-          {
-            path: 'delete',
-            title: 'Delete account | Keroma',
+            path: 'security',
+            title: 'Security | Keroma',
             loadComponent: () =>
-              import('./pages/account/delete-account/delete-account').then((m) => m.DeleteAccount),
+              import('./pages/account/security/security').then((m) => m.Security),
           },
+          { path: 'password', redirectTo: 'security' },
+          { path: 'delete', redirectTo: 'security' },
         ],
       },
       {
@@ -47,7 +44,8 @@ export const routes: Routes = [
         path: 'admin/users/:id',
         canActivate: [adminGuard],
         title: 'User | Keroma admin',
-        loadComponent: () => import('./pages/admin/user-detail/user-detail').then((m) => m.UserDetail),
+        loadComponent: () =>
+          import('./pages/admin/user-detail/user-detail').then((m) => m.UserDetail),
       },
     ],
   },

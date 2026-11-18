@@ -6,9 +6,15 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { heroEye, heroEyeSlash } from '@ng-icons/heroicons/outline';
 import { finalize } from 'rxjs';
 import { AuthService, safeRedirect } from '../../../core/auth/auth.service';
-import { isNetworkError, statusOf } from '../../../core/http/problem-detail';
+import { genericErrorMessage, statusOf } from '../../../core/http/problem-detail';
 import { FieldMessage } from '../../../shared/forms/field-message';
-import { focusFirstInvalid, isCapsLockOn, notBlank, shouldShowError } from '../../../shared/forms/form-utils';
+import { FormAlert } from '../../../shared/forms/form-alert';
+import {
+  focusFirstInvalid,
+  isCapsLockOn,
+  notBlank,
+  shouldShowError,
+} from '../../../shared/forms/form-utils';
 import { GoogleButton } from '../../../shared/google-button/google-button';
 import { Spinner } from '../../../shared/spinner/spinner';
 
@@ -26,7 +32,15 @@ const REQUIRED: Record<Field, string> = {
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, RouterLink, NgIcon, GoogleButton, FieldMessage, Spinner],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    NgIcon,
+    GoogleButton,
+    FieldMessage,
+    FormAlert,
+    Spinner,
+  ],
   viewProviders: [provideIcons({ heroEye, heroEyeSlash })],
   templateUrl: './login.html',
 })
@@ -60,7 +74,14 @@ export class Login {
       this.form.controls.email.setValue(registeredEmail);
     }
 
-    this.form.valueChanges.pipe(takeUntilDestroyed(inject(DestroyRef))).subscribe(() => this.formError.set(null));
+    const email = state?.['email'];
+    if (typeof email === 'string') {
+      this.form.controls.email.setValue(email);
+    }
+
+    this.form.valueChanges
+      .pipe(takeUntilDestroyed(inject(DestroyRef)))
+      .subscribe(() => this.formError.set(null));
   }
 
   protected error(field: Field): string | null {
@@ -90,22 +111,20 @@ export class Login {
       .login(this.form.getRawValue())
       .pipe(finalize(() => this.submitting.set(false)))
       .subscribe({
-        next: () => this.router.navigateByUrl(safeRedirect(this.route.snapshot.queryParamMap.get('next'))),
+        next: () =>
+          this.router.navigateByUrl(safeRedirect(this.route.snapshot.queryParamMap.get('next'))),
         error: (error) => this.formError.set(this.messageFor(error)),
       });
   }
 
   private messageFor(error: unknown): string {
-    if (isNetworkError(error)) {
-      return "Can't reach Keroma right now. Check your connection and try again.";
-    }
     switch (statusOf(error)) {
       case 401:
         return 'Incorrect email or password.';
       case 403:
         return 'This account has been suspended. Contact support for help.';
       default:
-        return 'Something went wrong on our side. Please try again.';
+        return genericErrorMessage(error);
     }
   }
 }

@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
+import { ToastService } from '../../../shared/toast/toast.service';
 import { userResponse } from '../../../testing/users';
 import { Profile } from './profile';
 
@@ -28,6 +29,7 @@ describe('Profile', () => {
 
   const input = (id: string) => compiled.querySelector<HTMLInputElement>(`#${id}`);
   const message = (id: string) => compiled.querySelector(`#${id}-message`)!;
+  const alert = () => compiled.querySelector('[role="alert"]');
 
   const type = async (id: string, value: string) => {
     input(id)!.value = value;
@@ -49,6 +51,23 @@ describe('Profile', () => {
     expect(input('currentPassword')).toBeNull();
   });
 
+  it('should enable saving only when something changed, and discard edits', async () => {
+    const save = () => compiled.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    const discard = () =>
+      [...compiled.querySelectorAll('button')].find((b) => b.textContent?.includes('Discard'))!;
+    expect(save().disabled).toBe(true);
+    expect(discard().disabled).toBe(true);
+
+    await type('firstName', 'Janet');
+    expect(save().disabled).toBe(false);
+
+    discard().click();
+    await fixture.whenStable();
+
+    expect(input('firstName')!.value).toBe('Jane');
+    expect(save().disabled).toBe(true);
+  });
+
   it('should send only the fields that changed and show a confirmation', async () => {
     await type('firstName', '  Janet ');
     await submit();
@@ -58,7 +77,9 @@ describe('Profile', () => {
     request.flush(userResponse({ firstName: 'Janet', phoneNumber: '+254707127309' }));
     await fixture.whenStable();
 
-    expect(compiled.textContent).toContain('Profile saved.');
+    expect(TestBed.inject(ToastService).toasts()).toEqual([
+      expect.objectContaining({ tone: 'success', text: 'Profile saved.' }),
+    ]);
     expect(TestBed.inject(AuthService).user()?.firstName).toBe('Janet');
   });
 
@@ -86,27 +107,24 @@ describe('Profile', () => {
     expect(message('phoneNumber').textContent).toContain('Use 7 to 15 digits');
   });
 
-  it('should show a conflict under the phone number when it is taken', async () => {
+  it('should show a conflict above the button and flag the phone number', async () => {
     await type('phoneNumber', '+254700000001');
     await submit();
 
-    http
-      .expectOne('/users/me')
-      .flush(
-        {
-          title: 'Phone number already exists',
-          detail: 'An account with this phone number already exists',
-        },
-        { status: 409, statusText: 'Conflict' },
-      );
+    http.expectOne('/users/me').flush(
+      {
+        title: 'Phone number already exists',
+        detail: 'An account with this phone number already exists',
+      },
+      { status: 409, statusText: 'Conflict' },
+    );
     await fixture.whenStable();
 
-    expect(message('phoneNumber').textContent).toContain(
-      'An account with this phone number already exists',
-    );
+    expect(alert()?.textContent).toContain('An account with this phone number already exists');
+    expect(input('phoneNumber')!.getAttribute('aria-invalid')).toBe('true');
   });
 
-  it('should show a wrong current password under that field', async () => {
+  it('should show a wrong current password above the button and flag that field', async () => {
     await type('email', 'janet@gmail.com');
     await type('currentPassword', 'wrong');
     await submit();
@@ -119,6 +137,7 @@ describe('Profile', () => {
       );
     await fixture.whenStable();
 
-    expect(message('currentPassword').textContent).toContain('Current password is incorrect');
+    expect(alert()?.textContent).toContain('Current password is incorrect');
+    expect(input('currentPassword')!.getAttribute('aria-invalid')).toBe('true');
   });
 });

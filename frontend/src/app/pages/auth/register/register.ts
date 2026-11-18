@@ -6,9 +6,15 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { heroEye, heroEyeSlash } from '@ng-icons/heroicons/outline';
 import { finalize } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
-import { isNetworkError, problemOf, statusOf } from '../../../core/http/problem-detail';
+import { genericErrorMessage, problemOf, statusOf } from '../../../core/http/problem-detail';
 import { FieldMessage } from '../../../shared/forms/field-message';
-import { focusFirstInvalid, isCapsLockOn, notBlank, shouldShowError } from '../../../shared/forms/form-utils';
+import { FormAlert } from '../../../shared/forms/form-alert';
+import {
+  focusFirstInvalid,
+  isCapsLockOn,
+  notBlank,
+  shouldShowError,
+} from '../../../shared/forms/form-utils';
 import { GoogleButton } from '../../../shared/google-button/google-button';
 import { Spinner } from '../../../shared/spinner/spinner';
 
@@ -25,7 +31,15 @@ const REQUIRED: Record<Field, string> = {
 
 @Component({
   selector: 'app-register',
-  imports: [ReactiveFormsModule, RouterLink, NgIcon, GoogleButton, FieldMessage, Spinner],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    NgIcon,
+    GoogleButton,
+    FieldMessage,
+    FormAlert,
+    Spinner,
+  ],
   viewProviders: [provideIcons({ heroEye, heroEyeSlash })],
   templateUrl: './register.html',
 })
@@ -39,6 +53,8 @@ export class Register {
   protected readonly capsLock = signal(false);
   protected readonly submitting = signal(false);
   protected readonly formError = signal<string | null>(null);
+  protected readonly emailTaken = signal(false);
+  private readonly rejectedFields = signal<ReadonlySet<Field>>(new Set());
   private readonly submitted = signal(false);
 
   protected readonly form = this.fb.group({
@@ -49,7 +65,15 @@ export class Register {
   });
 
   constructor() {
-    this.form.valueChanges.pipe(takeUntilDestroyed(inject(DestroyRef))).subscribe(() => this.formError.set(null));
+    this.form.valueChanges.pipe(takeUntilDestroyed(inject(DestroyRef))).subscribe(() => {
+      this.formError.set(null);
+      this.emailTaken.set(false);
+      this.rejectedFields.set(new Set());
+    });
+  }
+
+  protected isInvalid(field: Field): boolean {
+    return this.error(field) !== null || this.rejectedFields().has(field);
   }
 
   protected error(field: Field): string | null {
@@ -59,12 +83,6 @@ export class Register {
     }
     if (control.hasError('required')) {
       return REQUIRED[field];
-    }
-    if (control.hasError('taken')) {
-      return 'This email already has an account. Try logging in.';
-    }
-    if (control.hasError('server')) {
-      return control.getError('server');
     }
     if (control.hasError('email')) {
       return 'Enter a valid email address';
@@ -105,30 +123,22 @@ export class Register {
   }
 
   private handleError(error: unknown): void {
-    if (isNetworkError(error)) {
-      this.formError.set("Can't reach Keroma right now. Check your connection and try again.");
-      return;
-    }
-
     const status = statusOf(error);
     if (status === 409) {
-      this.form.controls.email.setErrors({ taken: true });
-      focusFirstInvalid(this.form, this.host);
+      this.formError.set('This email already has an account.');
+      this.emailTaken.set(true);
+      this.rejectedFields.set(new Set(['email']));
       return;
     }
 
     const fieldErrors = problemOf(error).errors;
-    if (status === 400 && fieldErrors) {
-      for (const field of FIELDS) {
-        const message = fieldErrors[field]?.[0];
-        if (message) {
-          this.form.controls[field].setErrors({ server: message });
-        }
-      }
-      focusFirstInvalid(this.form, this.host);
+    const rejected = FIELDS.filter((field) => fieldErrors?.[field]?.length);
+    if (status === 400 && rejected.length) {
+      this.formError.set(rejected.map((field) => fieldErrors![field][0]).join(' '));
+      this.rejectedFields.set(new Set(rejected));
       return;
     }
 
-    this.formError.set('Something went wrong on our side. Please try again.');
+    this.formError.set(genericErrorMessage(error));
   }
 }

@@ -1,6 +1,6 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { Login } from './login';
@@ -22,6 +22,7 @@ describe('Login', () => {
 
   const input = (id: string) => compiled.querySelector<HTMLInputElement>(`#${id}`)!;
   const message = (id: string) => compiled.querySelector(`#${id}-message`)!;
+  const alert = () => compiled.querySelector('[role="alert"]');
   const errorCount = () => compiled.querySelectorAll('[data-state="error"]').length;
 
   const submit = async () => {
@@ -108,7 +109,9 @@ describe('Login', () => {
 
     it('should log in and go to the page in ?next', async () => {
       const route = TestBed.inject(ActivatedRoute);
-      Object.defineProperty(route, 'snapshot', { value: { queryParamMap: convertToParamMap({ next: '/partners' }) } });
+      Object.defineProperty(route, 'snapshot', {
+        value: { queryParamMap: convertToParamMap({ next: '/partners' }) },
+      });
       const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
       await fillValidForm();
 
@@ -116,9 +119,15 @@ describe('Login', () => {
       expect(compiled.querySelector('button[type="submit"]')?.hasAttribute('disabled')).toBe(true);
       expect(compiled.querySelector('button[type="submit"]')?.textContent).toContain('Logging in');
 
-      http.expectOne((r) => r.url.endsWith('/auth/login')).flush({
-        userId: '1', firstName: 'Jane', lastName: 'Doe', email: 'jane.doe@gmail.com', roles: ['USER'],
-      });
+      http
+        .expectOne((r) => r.url.endsWith('/auth/login'))
+        .flush({
+          userId: '1',
+          firstName: 'Jane',
+          lastName: 'Doe',
+          email: 'jane.doe@gmail.com',
+          roles: ['USER'],
+        });
       await fixture.whenStable();
 
       expect(navigate).toHaveBeenCalledWith('/partners');
@@ -128,24 +137,29 @@ describe('Login', () => {
       await fillValidForm();
       await submit();
 
-      http.expectOne((r) => r.url.endsWith('/auth/login')).flush(null, { status: 401, statusText: 'Unauthorized' });
+      http
+        .expectOne((r) => r.url.endsWith('/auth/login'))
+        .flush(null, { status: 401, statusText: 'Unauthorized' });
       await fixture.whenStable();
 
-      expect(message('password').textContent).toContain('Incorrect email or password.');
+      expect(alert()?.textContent).toContain('Incorrect email or password.');
+      expect(message('password').textContent).not.toContain('Incorrect email or password.');
       expect(compiled.querySelector('button[type="submit"]')?.hasAttribute('disabled')).toBe(false);
 
       await type('password', 'An0therPassword!');
-      expect(message('password').textContent).not.toContain('Incorrect email or password.');
+      expect(alert()).toBeNull();
     });
 
     it('should explain when the server cannot be reached', async () => {
       await fillValidForm();
       await submit();
 
-      http.expectOne((r) => r.url.endsWith('/auth/login')).error(new ProgressEvent('error'), { status: 0 });
+      http
+        .expectOne((r) => r.url.endsWith('/auth/login'))
+        .error(new ProgressEvent('error'), { status: 0 });
       await fixture.whenStable();
 
-      expect(message('password').textContent).toContain("Can't reach Keroma right now");
+      expect(alert()?.textContent).toContain("Can't reach Keroma right now");
     });
   });
 
@@ -153,10 +167,16 @@ describe('Login', () => {
     it('should prefill the email and confirm the account was created', async () => {
       TestBed.resetTestingModule();
       TestBed.configureTestingModule({
-        providers: [provideRouter([{ path: 'login', component: Login }]), provideHttpClient(), provideHttpClientTesting()],
+        providers: [
+          provideRouter([{ path: 'login', component: Login }]),
+          provideHttpClient(),
+          provideHttpClientTesting(),
+        ],
       });
       const harness = await RouterTestingHarness.create();
-      await TestBed.inject(Router).navigate(['/login'], { state: { registeredEmail: 'jane.doe@gmail.com' } });
+      await TestBed.inject(Router).navigate(['/login'], {
+        state: { registeredEmail: 'jane.doe@gmail.com' },
+      });
       await harness.fixture.whenStable();
       const page = harness.routeNativeElement!;
 
@@ -164,8 +184,30 @@ describe('Login', () => {
       expect(page.querySelector('[role="status"]')?.textContent).toContain('Account created');
     });
 
+    it('should prefill the email without the confirmation when coming from "Log in instead"', async () => {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          provideRouter([{ path: 'login', component: Login }]),
+          provideHttpClient(),
+          provideHttpClientTesting(),
+        ],
+      });
+      const harness = await RouterTestingHarness.create();
+      await TestBed.inject(Router).navigate(['/login'], { state: { email: 'jane.doe@gmail.com' } });
+      await harness.fixture.whenStable();
+      const page = harness.routeNativeElement!;
+
+      expect(page.querySelector<HTMLInputElement>('#email')!.value).toBe('jane.doe@gmail.com');
+      expect(page.querySelector('[role="status"]')?.textContent ?? '').not.toContain(
+        'Account created',
+      );
+    });
+
     it('should not show the confirmation on a normal visit', () => {
-      expect(compiled.querySelector('[role="status"]')?.textContent ?? '').not.toContain('Account created');
+      expect(compiled.querySelector('[role="status"]')?.textContent ?? '').not.toContain(
+        'Account created',
+      );
     });
   });
 
@@ -173,7 +215,11 @@ describe('Login', () => {
     const arriveWith = async (notice: string) => {
       TestBed.resetTestingModule();
       TestBed.configureTestingModule({
-        providers: [provideRouter([{ path: 'login', component: Login }]), provideHttpClient(), provideHttpClientTesting()],
+        providers: [
+          provideRouter([{ path: 'login', component: Login }]),
+          provideHttpClient(),
+          provideHttpClientTesting(),
+        ],
       });
       const harness = await RouterTestingHarness.create();
       await TestBed.inject(Router).navigate(['/login'], { state: { notice } });
@@ -182,7 +228,9 @@ describe('Login', () => {
     };
 
     it('should confirm a password change', async () => {
-      expect(await arriveWith('password-changed')).toContain('Password changed. Log in with your new password.');
+      expect(await arriveWith('password-changed')).toContain(
+        'Password changed. Log in with your new password.',
+      );
     });
 
     it('should confirm an account deletion', async () => {

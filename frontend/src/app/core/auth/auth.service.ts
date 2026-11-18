@@ -56,11 +56,13 @@ export class AuthService {
   }
 
   refresh(): Observable<SessionUser> {
-    this.refreshInFlight ??= this.http.post<UserResponse>(`${this.authUrl}/refresh-token`, null).pipe(
-      map((response) => this.startSession(response)),
-      finalize(() => (this.refreshInFlight = null)),
-      shareReplay(1),
-    );
+    this.refreshInFlight ??= this.http
+      .post<UserResponse>(`${this.authUrl}/refresh-token`, null)
+      .pipe(
+        map((response) => this.startSession(response)),
+        finalize(() => (this.refreshInFlight = null)),
+        shareReplay(1),
+      );
     return this.refreshInFlight;
   }
 

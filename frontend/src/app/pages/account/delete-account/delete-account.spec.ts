@@ -24,12 +24,17 @@ describe('DeleteAccount', () => {
     compiled = fixture.nativeElement as HTMLElement;
   });
 
+  const expand = async () => {
+    compiled.querySelector<HTMLButtonElement>('#delete-account-toggle')!.click();
+    await fixture.whenStable();
+  };
+
   afterEach(() => http.verify());
 
   const message = (id: string) => compiled.querySelector(`#${id}-message`)!;
 
   const typePassword = async (value: string) => {
-    const input = compiled.querySelector<HTMLInputElement>('#currentPassword')!;
+    const input = compiled.querySelector<HTMLInputElement>('#deletePassword')!;
     input.value = value;
     input.dispatchEvent(new Event('input'));
     await fixture.whenStable();
@@ -45,19 +50,42 @@ describe('DeleteAccount', () => {
     await fixture.whenStable();
   };
 
-  it('should warn that deletion cannot be undone', () => {
+  it('should keep the form hidden until the user chooses to delete', async () => {
+    expect(compiled.querySelector('form')).toBeNull();
+
+    await expand();
+
+    expect(compiled.querySelector('form')).not.toBeNull();
     expect(compiled.textContent).toContain("This can't be undone.");
+    expect(document.activeElement).toBe(compiled.querySelector('#deletePassword'));
+  });
+
+  it('should collapse and clear the form on cancel', async () => {
+    await expand();
+    await typePassword('OldPassw0rd!');
+
+    [...compiled.querySelectorAll('button')]
+      .find((b) => b.textContent?.includes('Cancel'))!
+      .click();
+    await fixture.whenStable();
+
+    expect(compiled.querySelector('form')).toBeNull();
+    await expand();
+    expect(compiled.querySelector<HTMLInputElement>('#deletePassword')!.value).toBe('');
+    http.expectNone('/users/me');
   });
 
   it('should require the password and the confirmation box', async () => {
+    await expand();
     await submit();
 
-    expect(message('currentPassword').textContent).toContain('Enter your current password');
+    expect(message('deletePassword').textContent).toContain('Enter your current password');
     expect(message('confirm').textContent).toContain('Tick the box');
     http.expectNone('/users/me');
   });
 
   it('should delete the account, end the session and go to login with a notice', async () => {
+    await expand();
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
     await typePassword('OldPassw0rd!');
     await tickConfirm();
@@ -74,6 +102,7 @@ describe('DeleteAccount', () => {
   });
 
   it('should keep the account and show the error when the password is wrong', async () => {
+    await expand();
     await typePassword('wrong');
     await tickConfirm();
     await submit();
@@ -86,7 +115,10 @@ describe('DeleteAccount', () => {
       );
     await fixture.whenStable();
 
-    expect(message('currentPassword').textContent).toContain('Current password is incorrect');
+    expect(compiled.querySelector('[role="alert"]')?.textContent).toContain(
+      'Current password is incorrect',
+    );
+    expect(compiled.querySelector('#deletePassword')!.getAttribute('aria-invalid')).toBe('true');
     expect(TestBed.inject(AuthService).isLoggedIn()).toBe(true);
   });
 });

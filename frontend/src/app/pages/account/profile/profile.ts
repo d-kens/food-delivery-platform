@@ -4,12 +4,15 @@ import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angula
 import { finalize, map, startWith } from 'rxjs';
 import { SessionUser } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
-import { isNetworkError, problemOf, statusOf } from '../../../core/http/problem-detail';
+import { genericErrorMessage, problemOf, statusOf } from '../../../core/http/problem-detail';
 import { UpdateProfileRequest } from '../../../core/users/users.models';
 import { UsersService } from '../../../core/users/users.service';
 import { FieldMessage } from '../../../shared/forms/field-message';
+import { FormAlert } from '../../../shared/forms/form-alert';
 import { focusFirstInvalid, notBlank, shouldShowError } from '../../../shared/forms/form-utils';
+import { SettingsSection } from '../../../shared/settings-section/settings-section';
 import { Spinner } from '../../../shared/spinner/spinner';
+import { ToastService } from '../../../shared/toast/toast.service';
 
 type Field = 'firstName' | 'lastName' | 'email' | 'phoneNumber' | 'currentPassword';
 
@@ -17,7 +20,7 @@ const PHONE_PATTERN = /^\+?[0-9]{7,15}$/;
 
 @Component({
   selector: 'app-profile',
-  imports: [ReactiveFormsModule, FieldMessage, Spinner],
+  imports: [ReactiveFormsModule, FieldMessage, FormAlert, SettingsSection, Spinner],
   templateUrl: './profile.html',
 })
 export class Profile {
@@ -25,11 +28,11 @@ export class Profile {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly auth = inject(AuthService);
   private readonly users = inject(UsersService);
+  private readonly toast = inject(ToastService);
 
   protected readonly submitting = signal(false);
-  protected readonly saved = signal(false);
   protected readonly formError = signal<string | null>(null);
-  private readonly serverErrors = signal<Partial<Record<Field, string>>>({});
+  private readonly rejectedFields = signal<ReadonlySet<Field>>(new Set());
   private readonly submitted = signal(false);
 
   protected readonly form = this.fb.group({
@@ -48,6 +51,15 @@ export class Profile {
     { requireSync: true },
   );
 
+  private readonly formValue = toSignal(this.form.valueChanges, {
+    initialValue: this.form.getRawValue(),
+  });
+
+  protected readonly hasChanges = computed(() => {
+    this.formValue();
+    return Object.keys(this.changes()).length > 0;
+  });
+
   protected readonly emailChanged = computed(
     () => this.email() !== (this.auth.user()?.email ?? ''),
   );
@@ -60,16 +72,15 @@ export class Profile {
 
     this.form.valueChanges.pipe(takeUntilDestroyed(inject(DestroyRef))).subscribe(() => {
       this.formError.set(null);
-      this.serverErrors.set({});
-      this.saved.set(false);
+      this.rejectedFields.set(new Set());
     });
   }
 
+  protected isInvalid(field: Field): boolean {
+    return this.error(field) !== null || this.rejectedFields().has(field);
+  }
+
   protected error(field: Field): string | null {
-    const server = this.serverErrors()[field];
-    if (server) {
-      return server;
-    }
     const control = this.form.controls[field];
     if (field === 'currentPassword') {
       return this.submitted() && this.emailChanged() && !control.value
@@ -109,7 +120,6 @@ export class Profile {
 
     const request = this.changes();
     if (Object.keys(request).length === 0) {
-      this.saved.set(true);
       return;
     }
 
@@ -121,10 +131,15 @@ export class Profile {
         next: () => {
           this.fill(this.auth.user()!);
           this.submitted.set(false);
-          this.saved.set(true);
+          this.toast.success('Profile saved.');
         },
         error: (error) => this.handleError(error),
       });
+  }
+
+  protected discard(): void {
+    this.fill(this.auth.user()!);
+    this.submitted.set(false);
   }
 
   private changes(): UpdateProfileRequest {
@@ -166,26 +181,27 @@ export class Profile {
     const status = statusOf(error);
 
     if (status === 400 && problem.errors) {
-      const errors: Partial<Record<Field, string>> = {};
-      for (const [field, messages] of Object.entries(problem.errors)) {
-        errors[field as Field] = messages[0];
-      }
-      this.serverErrors.set(errors);
+      const entries = Object.entries(problem.errors);
+      this.reject(
+        entries.map(([field]) => field as Field),
+        entries.map(([, messages]) => messages[0]).join(' '),
+      );
       return;
     }
     if (status === 400) {
-      this.serverErrors.set({ currentPassword: problem.detail ?? 'Current password is incorrect' });
+      this.reject(['currentPassword'], problem.detail ?? 'Current password is incorrect');
       return;
     }
     if (status === 409) {
       const field: Field = problem.title?.toLowerCase().includes('phone') ? 'phoneNumber' : 'email';
-      this.serverErrors.set({ [field]: problem.detail ?? 'This is already in use' });
+      this.reject([field], problem.detail ?? 'This is already in use');
       return;
     }
-    this.formError.set(
-      isNetworkError(error)
-        ? "Can't reach Keroma right now. Check your connection and try again."
-        : 'Something went wrong on our side. Please try again.',
-    );
+    this.formError.set(genericErrorMessage(error));
+  }
+
+  private reject(fields: Field[], message: string): void {
+    this.formError.set(message);
+    this.rejectedFields.set(new Set(fields));
   }
 }

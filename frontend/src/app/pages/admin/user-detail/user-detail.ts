@@ -4,10 +4,11 @@ import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { Role, UserResponse, UserStatus } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
-import { isNetworkError, problemOf, statusOf } from '../../../core/http/problem-detail';
+import { genericErrorMessage, problemOf, statusOf } from '../../../core/http/problem-detail';
 import { UsersService } from '../../../core/users/users.service';
 import { Spinner } from '../../../shared/spinner/spinner';
 import { StatusBadge } from '../../../shared/status-badge/status-badge';
+import { ToastService } from '../../../shared/toast/toast.service';
 
 const ROLES: { value: Role; label: string; description: string }[] = [
   { value: 'USER', label: 'User', description: 'Can order food' },
@@ -23,6 +24,7 @@ const ROLES: { value: Role; label: string; description: string }[] = [
 export class UserDetail {
   private readonly users = inject(UsersService);
   private readonly auth = inject(AuthService);
+  private readonly toast = inject(ToastService);
 
   readonly id = input.required<string>();
 
@@ -34,7 +36,6 @@ export class UserDetail {
 
   protected readonly selectedRoles = signal<Set<Role> | null>(null);
   protected readonly busy = signal<'status' | 'roles' | null>(null);
-  protected readonly message = signal<{ tone: 'success' | 'error'; text: string } | null>(null);
 
   protected readonly isSelf = computed(() => this.user.value()?.userId === this.auth.user()?.id);
   protected readonly isDeleted = computed(() => this.user.value()?.status === 'DELETED');
@@ -58,7 +59,6 @@ export class UserDetail {
       next.delete(role);
     }
     this.selectedRoles.set(next);
-    this.message.set(null);
   }
 
   protected saveRoles(): void {
@@ -67,7 +67,6 @@ export class UserDetail {
       return;
     }
     this.busy.set('roles');
-    this.message.set(null);
     this.users
       .updateRoles(user.userId, [...this.roles()])
       .pipe(finalize(() => this.busy.set(null)))
@@ -75,12 +74,11 @@ export class UserDetail {
         next: (updated) => {
           this.user.set(updated);
           this.selectedRoles.set(null);
-          this.message.set({
-            tone: 'success',
-            text: 'Roles updated. They apply the next time this user refreshes their session.',
-          });
+          this.toast.success(
+            'Roles updated. They apply the next time this user refreshes their session.',
+          );
         },
-        error: (error) => this.message.set({ tone: 'error', text: this.errorText(error) }),
+        error: (error) => this.toast.error(this.errorText(error)),
       });
   }
 
@@ -90,33 +88,27 @@ export class UserDetail {
       return;
     }
     this.busy.set('status');
-    this.message.set(null);
     this.users
       .updateStatus(user.userId, status)
       .pipe(finalize(() => this.busy.set(null)))
       .subscribe({
         next: () => {
           this.user.set({ ...user, status } satisfies UserResponse);
-          this.message.set({
-            tone: 'success',
-            text:
-              status === 'SUSPENDED'
-                ? 'User suspended and logged out of every device.'
-                : 'User reactivated.',
-          });
+          this.toast.success(
+            status === 'SUSPENDED'
+              ? 'User suspended and logged out of every device.'
+              : 'User reactivated.',
+          );
         },
-        error: (error) => this.message.set({ tone: 'error', text: this.errorText(error) }),
+        error: (error) => this.toast.error(this.errorText(error)),
       });
   }
 
   private errorText(error: unknown): string {
-    if (isNetworkError(error)) {
-      return "Can't reach Keroma right now. Check your connection and try again.";
-    }
     const status = statusOf(error);
     if (status === 400 || status === 404 || status === 409) {
       return problemOf(error).detail ?? 'This change could not be made.';
     }
-    return 'Something went wrong on our side. Please try again.';
+    return genericErrorMessage(error);
   }
 }

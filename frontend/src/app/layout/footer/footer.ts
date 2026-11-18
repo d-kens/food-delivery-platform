@@ -12,6 +12,9 @@ export class Footer {
   protected readonly columns = [
     { title: 'Company', links: ['About us', 'Careers', 'Blog', 'Press'] },
     { title: 'Partners', links: ['Add your restaurant', 'Become a rider', 'Keroma for business'] },
-    { title: 'Support', links: ['Help centre', 'Contact us', 'Terms of service', 'Privacy policy'] },
+    {
+      title: 'Support',
+      links: ['Help centre', 'Contact us', 'Terms of service', 'Privacy policy'],
+    },
   ];
 }

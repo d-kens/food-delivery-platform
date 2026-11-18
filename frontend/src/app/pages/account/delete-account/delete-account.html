@@ -1,65 +1,92 @@
-<h2 class="text-lg font-semibold">Delete account</h2>
-<div class="mt-3 rounded-lg bg-red-50 p-4 text-sm text-red-900 ring-1 ring-red-200">
-  <p class="font-semibold">This can't be undone.</p>
-  <ul class="mt-2 list-disc space-y-1 pl-5">
-    <li>Your name, email and phone number will be erased.</li>
-    <li>You'll be logged out on every device.</li>
-    <li>Past orders are kept for our records, but no longer linked to your details.</li>
-    <li>You can sign up again later with the same email.</li>
-  </ul>
-</div>
+<app-settings-section
+  heading="Delete account"
+  description="Permanently erase your personal details and log out on every device."
+  headingId="delete-account-heading"
+>
+  <div class="settings-card">
+    @if (!expanded()) {
+      <div class="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+        <p class="text-sm text-zinc-600">Once your account is deleted, it can't be restored.</p>
+        <button
+          id="delete-account-toggle"
+          type="button"
+          class="btn-secondary shrink-0 border-red-200 text-red-700 hover:bg-red-50 focus-visible:outline-red-600"
+          aria-controls="delete-account-form"
+          aria-expanded="false"
+          (click)="expand()"
+        >
+          Delete account
+        </button>
+      </div>
+    } @else {
+      <form id="delete-account-form" [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+        <div class="space-y-5 p-6">
+          <div class="flex gap-3 rounded-xl bg-red-50 p-4 text-sm text-red-900">
+            <ng-icon
+              name="heroExclamationTriangle"
+              size="20"
+              class="shrink-0 text-red-600"
+              aria-hidden="true"
+            />
+            <div>
+              <p class="font-semibold">This can't be undone.</p>
+              <ul class="mt-2 list-disc space-y-1 pl-5 text-red-800">
+                <li>Your name, email and phone number will be erased.</li>
+                <li>You'll be logged out on every device.</li>
+                <li>Past orders are kept for our records, but no longer linked to your details.</li>
+                <li>You can sign up again later with the same email.</li>
+              </ul>
+            </div>
+          </div>
 
-@if (formError()) {
-  <p
-    class="mt-5 rounded-lg bg-red-50 px-3.5 py-2.5 text-sm text-red-800 ring-1 ring-red-200"
-    role="alert"
-  >
-    {{ formError() }}
-  </p>
-}
+          <div class="space-y-1">
+            <div>
+              <label for="deletePassword" class="form-label">Current password</label>
+              <input
+                id="deletePassword"
+                type="password"
+                formControlName="deletePassword"
+                autocomplete="current-password"
+                class="form-input"
+                aria-describedby="deletePassword-message"
+                [attr.aria-invalid]="passwordMessage() || passwordRejected() ? true : null"
+              />
+              <app-field-message fieldId="deletePassword" [error]="passwordMessage()" />
+            </div>
 
-<form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="mt-6 space-y-1 sm:max-w-sm">
-  <div>
-    <label for="currentPassword" class="form-label">Current password</label>
-    <input
-      id="currentPassword"
-      type="password"
-      formControlName="currentPassword"
-      autocomplete="current-password"
-      class="form-input"
-      aria-describedby="currentPassword-message"
-      [attr.aria-invalid]="passwordMessage() ? true : null"
-    />
-    <app-field-message fieldId="currentPassword" [error]="passwordMessage()" />
+            <div>
+              <label class="flex items-start gap-3 text-sm text-zinc-800">
+                <input
+                  id="confirm"
+                  type="checkbox"
+                  formControlName="confirm"
+                  class="mt-0.5 size-4 shrink-0 accent-red-600"
+                  aria-describedby="confirm-message"
+                  [attr.aria-invalid]="confirmMessage() ? true : null"
+                />
+                I understand my account will be permanently deleted.
+              </label>
+              <app-field-message fieldId="confirm" [error]="confirmMessage()" />
+            </div>
+          </div>
+
+          <app-form-alert [message]="formError()" />
+        </div>
+
+        <div class="flex items-center justify-end gap-3 border-t border-zinc-100 px-6 py-4">
+          <button type="button" class="btn-secondary" [disabled]="submitting()" (click)="cancel()">
+            Cancel
+          </button>
+          <button type="submit" class="btn-danger" [disabled]="submitting()">
+            @if (submitting()) {
+              <app-spinner />
+              Deleting account…
+            } @else {
+              Delete my account
+            }
+          </button>
+        </div>
+      </form>
+    }
   </div>
-
-  <div>
-    <label class="flex items-start gap-3 text-sm text-zinc-800">
-      <input
-        id="confirm"
-        type="checkbox"
-        formControlName="confirm"
-        class="mt-0.5 size-4 shrink-0 accent-red-600"
-        aria-describedby="confirm-message"
-        [attr.aria-invalid]="confirmMessage() ? true : null"
-      />
-      I understand my account will be permanently deleted.
-    </label>
-    <app-field-message fieldId="confirm" [error]="confirmMessage()" />
-  </div>
-
-  <div class="pt-3">
-    <button
-      type="submit"
-      class="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:cursor-not-allowed disabled:opacity-60"
-      [disabled]="submitting()"
-    >
-      @if (submitting()) {
-        <app-spinner />
-        Deleting account…
-      } @else {
-        Delete my account
-      }
-    </button>
-  </div>
-</form>
+</app-settings-section>

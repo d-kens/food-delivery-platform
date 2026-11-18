@@ -1,40 +1,61 @@
-import { Component } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
   selector: 'app-account',
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
   template: `
-    <div class="mx-auto max-w-2xl px-4 py-10 sm:px-6">
-      <h1 class="font-display text-3xl font-bold tracking-tight">Account settings</h1>
+    <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center gap-4 pt-10 pb-8">
+        <span
+          class="grid size-14 shrink-0 place-items-center rounded-full bg-brand-500 font-display text-lg font-bold text-white"
+          aria-hidden="true"
+        >
+          {{ initials() }}
+        </span>
+        <div class="min-w-0">
+          <h1 class="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+            Account settings
+          </h1>
+          @if (user(); as current) {
+            <p class="mt-0.5 truncate text-sm text-zinc-600">
+              {{ current.firstName }} {{ current.lastName }} · {{ current.email }}
+            </p>
+          }
+        </div>
+      </div>
 
-      <nav
-        class="mt-6 flex gap-1 overflow-x-auto border-b border-zinc-200"
-        aria-label="Account sections"
-      >
-        @for (tab of tabs; track tab.path) {
+      <nav class="flex gap-8 border-b border-zinc-200" aria-label="Account sections">
+        @for (section of sections; track section.path) {
           <a
-            [routerLink]="tab.path"
-            routerLinkActive="border-zinc-900 text-zinc-900"
-            [routerLinkActiveOptions]="{ exact: true }"
+            [routerLink]="section.path"
+            routerLinkActive="border-brand-500 text-zinc-900"
             ariaCurrentWhenActive="page"
-            class="-mb-px shrink-0 border-b-2 border-transparent px-3 py-2.5 text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-900"
+            class="-mb-px border-b-2 border-transparent pb-3 text-sm font-semibold text-zinc-500 transition-colors hover:text-zinc-900"
           >
-            {{ tab.label }}
+            {{ section.label }}
           </a>
         }
       </nav>
 
-      <div class="mt-8">
+      <div class="py-10">
         <router-outlet />
       </div>
     </div>
   `,
 })
 export class Account {
-  protected readonly tabs = [
+  private readonly auth = inject(AuthService);
+
+  protected readonly user = this.auth.user;
+  protected readonly initials = computed(() => {
+    const user = this.user();
+    return user ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase() : '';
+  });
+
+  protected readonly sections = [
     { label: 'Profile', path: '/account/profile' },
-    { label: 'Password', path: '/account/password' },
-    { label: 'Delete account', path: '/account/delete' },
+    { label: 'Security', path: '/account/security' },
   ];
 }

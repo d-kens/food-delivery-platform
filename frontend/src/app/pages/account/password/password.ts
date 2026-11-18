@@ -1,19 +1,43 @@
-import { Component, DestroyRef, ElementRef, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Component, DestroyRef, ElementRef, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { heroEye, heroEyeSlash } from '@ng-icons/heroicons/outline';
+import { heroCheckCircleSolid } from '@ng-icons/heroicons/solid';
 import { finalize } from 'rxjs';
-import { isNetworkError, problemOf, statusOf } from '../../../core/http/problem-detail';
+import { genericErrorMessage, problemOf, statusOf } from '../../../core/http/problem-detail';
 import { UsersService } from '../../../core/users/users.service';
 import { FieldMessage } from '../../../shared/forms/field-message';
+import { FormAlert } from '../../../shared/forms/form-alert';
 import { focusFirstInvalid, notBlank, shouldShowError } from '../../../shared/forms/form-utils';
+import { SettingsSection } from '../../../shared/settings-section/settings-section';
 import { Spinner } from '../../../shared/spinner/spinner';
 
 type Field = 'currentPassword' | 'newPassword' | 'confirmPassword';
 
+const FIELDS: { id: Field; label: string; autocomplete: string; wide: boolean }[] = [
+  {
+    id: 'currentPassword',
+    label: 'Current password',
+    autocomplete: 'current-password',
+    wide: true,
+  },
+  { id: 'newPassword', label: 'New password', autocomplete: 'new-password', wide: false },
+  {
+    id: 'confirmPassword',
+    label: 'Confirm new password',
+    autocomplete: 'new-password',
+    wide: false,
+  },
+];
+
+const MIN_LENGTH = 8;
+
 @Component({
   selector: 'app-password',
-  imports: [ReactiveFormsModule, FieldMessage, Spinner],
+  imports: [ReactiveFormsModule, NgIcon, FieldMessage, FormAlert, SettingsSection, Spinner],
+  viewProviders: [provideIcons({ heroEye, heroEyeSlash, heroCheckCircleSolid })],
   templateUrl: './password.html',
 })
 export class Password {
@@ -24,26 +48,58 @@ export class Password {
 
   protected readonly submitting = signal(false);
   protected readonly formError = signal<string | null>(null);
-  private readonly currentPasswordError = signal<string | null>(null);
+  protected readonly currentPasswordRejected = signal(false);
+  protected readonly fields = FIELDS;
+  private readonly visible = signal<ReadonlySet<Field>>(new Set());
   private readonly submitted = signal(false);
 
   protected readonly form = this.fb.group({
     currentPassword: ['', notBlank],
-    newPassword: ['', [notBlank, Validators.minLength(8), Validators.maxLength(100)]],
+    newPassword: ['', [notBlank, Validators.minLength(MIN_LENGTH), Validators.maxLength(100)]],
     confirmPassword: ['', notBlank],
+  });
+
+  private readonly formValue = toSignal(this.form.valueChanges, {
+    initialValue: this.form.getRawValue(),
+  });
+
+  protected readonly requirements = computed(() => {
+    const { newPassword = '', confirmPassword = '' } = this.formValue();
+    return [
+      { label: `At least ${MIN_LENGTH} characters`, met: newPassword.length >= MIN_LENGTH },
+      {
+        label: 'Passwords match',
+        met: confirmPassword.length > 0 && confirmPassword === newPassword,
+      },
+    ];
   });
 
   constructor() {
     this.form.valueChanges.pipe(takeUntilDestroyed(inject(DestroyRef))).subscribe(() => {
       this.formError.set(null);
-      this.currentPasswordError.set(null);
+      this.currentPasswordRejected.set(false);
     });
   }
 
-  protected error(field: Field): string | null {
-    if (field === 'currentPassword' && this.currentPasswordError()) {
-      return this.currentPasswordError();
+  protected isVisible(field: Field): boolean {
+    return this.visible().has(field);
+  }
+
+  protected toggleVisible(field: Field): void {
+    const next = new Set(this.visible());
+    if (!next.delete(field)) {
+      next.add(field);
     }
+    this.visible.set(next);
+  }
+
+  protected isInvalid(field: Field): boolean {
+    return (
+      this.error(field) !== null || (field === 'currentPassword' && this.currentPasswordRejected())
+    );
+  }
+
+  protected error(field: Field): string | null {
     const control = this.form.controls[field];
     const mismatch =
       field === 'confirmPassword' &&
@@ -88,17 +144,12 @@ export class Password {
         next: () => this.router.navigateByUrl('/login', { state: { notice: 'password-changed' } }),
         error: (error) => {
           if (statusOf(error) === 400 && !problemOf(error).errors) {
-            this.currentPasswordError.set(
-              problemOf(error).detail ?? 'Current password is incorrect',
-            );
+            this.formError.set(problemOf(error).detail ?? 'Current password is incorrect');
+            this.currentPasswordRejected.set(true);
             this.host.querySelector<HTMLElement>('#currentPassword')?.focus();
             return;
           }
-          this.formError.set(
-            isNetworkError(error)
-              ? "Can't reach Keroma right now. Check your connection and try again."
-              : 'Something went wrong on our side. Please try again.',
-          );
+          this.formError.set(genericErrorMessage(error));
         },
       });
   }

@@ -41,6 +41,33 @@ describe('Password', () => {
     await fixture.whenStable();
   };
 
+  it('should tick off the password requirements as the user types', async () => {
+    const rule = (label: string) =>
+      [...compiled.querySelectorAll('li')].find((li) => li.textContent?.includes(label))!;
+    expect(rule('At least 8 characters').textContent).toContain('(not met)');
+    expect(rule('Passwords match').textContent).toContain('(not met)');
+
+    await type('newPassword', 'NewPassw0rd!');
+    await type('confirmPassword', 'NewPassw0rd!');
+
+    expect(rule('At least 8 characters').textContent).toContain('(met)');
+    expect(rule('Passwords match').textContent).toContain('(met)');
+  });
+
+  it('should show and hide a password', async () => {
+    const toggle = compiled.querySelector<HTMLButtonElement>(
+      'button[aria-label="Show new password"]',
+    )!;
+
+    toggle.click();
+    await fixture.whenStable();
+    expect(input('newPassword').type).toBe('text');
+
+    toggle.click();
+    await fixture.whenStable();
+    expect(input('newPassword').type).toBe('password');
+  });
+
   it('should require every field', async () => {
     await submit();
 
@@ -80,7 +107,7 @@ describe('Password', () => {
     expect(navigate).toHaveBeenCalledWith('/login', { state: { notice: 'password-changed' } });
   });
 
-  it('should show the server message under the current password when it is wrong', async () => {
+  it('should show the server message above the button and flag the current password', async () => {
     await type('currentPassword', 'wrong');
     await type('newPassword', 'NewPassw0rd!');
     await type('confirmPassword', 'NewPassw0rd!');
@@ -94,7 +121,10 @@ describe('Password', () => {
       );
     await fixture.whenStable();
 
-    expect(message('currentPassword').textContent).toContain('Current password is incorrect');
+    expect(compiled.querySelector('[role="alert"]')?.textContent).toContain(
+      'Current password is incorrect',
+    );
+    expect(compiled.querySelector('#currentPassword')!.getAttribute('aria-invalid')).toBe('true');
     expect(TestBed.inject(AuthService).isLoggedIn()).toBe(true);
   });
 });
