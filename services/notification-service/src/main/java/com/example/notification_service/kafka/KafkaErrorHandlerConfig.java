@@ -1,14 +1,10 @@
 package com.example.notification_service.kafka;
 
-import com.example.notification_service.notification.InvalidNotificationException;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.KafkaOperations;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
@@ -23,23 +19,17 @@ import tools.jackson.core.JacksonException;
 public class KafkaErrorHandlerConfig {
 
     @Bean
-    DefaultErrorHandler kafkaErrorHandler(KafkaOperations<?, ?> kafkaTemplate,
-                                          @Value("${kafka.topics.notifications}.DLT") String deadLetterTopic) {
+    DefaultErrorHandler kafkaErrorHandler(KafkaOperations<?, ?> kafkaTemplate) {
         var recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate,
-                (record, ex) -> new TopicPartition(deadLetterTopic, -1));
+                (record, ex) -> new TopicPartition(deadLetterTopic(record), -1));
 
         var handler = new DefaultErrorHandler(recoverer, retryBackOff());
-        handler.addNotRetryableExceptions(JacksonException.class, InvalidNotificationException.class);
-        handler.setRetryListeners(loggingListener(deadLetterTopic));
+        handler.addNotRetryableExceptions(JacksonException.class, InvalidMessageException.class);
+        handler.setRetryListeners(loggingListener());
         return handler;
     }
 
-    @Bean
-    NewTopic notificationsDeadLetterTopic(@Value("${kafka.topics.notifications}.DLT") String deadLetterTopic) {
-        return TopicBuilder.name(deadLetterTopic).partitions(1).build();
-    }
-
-    private static RetryListener loggingListener(String deadLetterTopic) {
+    private static RetryListener loggingListener() {
         return new RetryListener() {
             @Override
             public void failedDelivery(ConsumerRecord<?, ?> record, Exception ex, int deliveryAttempt) {
@@ -48,9 +38,13 @@ public class KafkaErrorHandlerConfig {
 
             @Override
             public void recovered(ConsumerRecord<?, ?> record, Exception ex) {
-                log.error("Dead-lettered {} to {}", KafkaUtils.format(record), deadLetterTopic, ex);
+                log.error("Dead-lettered {} to {}", KafkaUtils.format(record), deadLetterTopic(record), ex);
             }
         };
+    }
+
+    private static String deadLetterTopic(ConsumerRecord<?, ?> record) {
+        return record.topic() + KafkaTopicConfig.DEAD_LETTER_SUFFIX;
     }
 
     static BackOff retryBackOff() {

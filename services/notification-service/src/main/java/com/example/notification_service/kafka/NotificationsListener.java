@@ -21,8 +21,8 @@ public class NotificationsListener {
     public void onMessage(ConsumerRecord<String, String> record) {
         Notification notification = jsonMapper.readValue(record.value(), Notification.class);
 
-        log.info("Received {} eventId={} recipient={} partition={} offset={}",
-                notification.type(), notification.eventId(), notification.recipient().id(),
+        log.info("Received {} eventId={} recipientId={} partition={} offset={}",
+                notification.type(), notification.eventId(), notification.recipientId(),
                 record.partition(), record.offset());
 
         sender.send(notification);

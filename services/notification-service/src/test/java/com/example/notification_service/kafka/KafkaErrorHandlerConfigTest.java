@@ -1,7 +1,6 @@
 package com.example.notification_service.kafka;
 
 import co.novu.models.errors.APIException;
-import com.example.notification_service.notification.InvalidNotificationException;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -27,8 +26,6 @@ import static org.mockito.Mockito.when;
 
 class KafkaErrorHandlerConfigTest {
 
-    private static final String DLT = "notifications.DLT";
-
     private KafkaOperations<Object, Object> template;
     private DefaultErrorHandler handler;
 
@@ -37,11 +34,15 @@ class KafkaErrorHandlerConfigTest {
     void setUp() {
         template = mock(KafkaOperations.class);
         when(template.send(any(ProducerRecord.class))).thenReturn(CompletableFuture.completedFuture(null));
-        handler = new KafkaErrorHandlerConfig().kafkaErrorHandler(template, DLT);
+        handler = new KafkaErrorHandlerConfig().kafkaErrorHandler(template);
     }
 
     private boolean failOnce(Throwable cause) {
-        var record = new ConsumerRecord<Object, Object>("notifications", 0, 0L, "u1", "{}");
+        return failOnce("notifications", cause);
+    }
+
+    private boolean failOnce(String topic, Throwable cause) {
+        var record = new ConsumerRecord<Object, Object>(topic, 0, 0L, "u1", "{}");
         return handler.handleOne(new ListenerExecutionFailedException("listener failed", cause),
                 record, mock(Consumer.class), mock(MessageListenerContainer.class));
     }
@@ -52,15 +53,21 @@ class KafkaErrorHandlerConfigTest {
     }
 
     @Test
-    void invalidNotification_isDeadLetteredWithoutRetry() {
-        assertThat(failOnce(new InvalidNotificationException("Notification is missing type"))).isTrue();
-        verify(template).send(argThat((ProducerRecord<Object, Object> r) -> r.topic().equals(DLT)));
+    void invalidMessage_isDeadLetteredWithoutRetry() {
+        assertThat(failOnce(new InvalidMessageException("Notification is missing type"))).isTrue();
+        verify(template).send(argThat((ProducerRecord<Object, Object> r) -> r.topic().equals("notifications.DLT")));
+    }
+
+    @Test
+    void userEvent_isDeadLetteredToUserEventsDlt() {
+        assertThat(failOnce("user-events", new InvalidMessageException("User event is missing userId"))).isTrue();
+        verify(template).send(argThat((ProducerRecord<Object, Object> r) -> r.topic().equals("user-events.DLT")));
     }
 
     @Test
     void malformedJson_isDeadLetteredWithoutRetry() {
         assertThat(failOnce(new StreamReadException(null, "bad json"))).isTrue();
-        verify(template).send(argThat((ProducerRecord<Object, Object> r) -> r.topic().equals(DLT)));
+        verify(template).send(argThat((ProducerRecord<Object, Object> r) -> r.topic().equals("notifications.DLT")));
     }
 
     @Test

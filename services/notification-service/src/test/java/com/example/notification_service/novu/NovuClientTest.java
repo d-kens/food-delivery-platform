@@ -1,18 +1,23 @@
 package com.example.notification_service.novu;
 
 import co.novu.Novu;
-import com.example.notification_service.notification.Recipient;
 import co.novu.models.components.CreateSubscriberRequestDto;
 import co.novu.models.components.TriggerEventRequestDto;
+import co.novu.models.errors.APIException;
 import co.novu.models.operations.EventsControllerTriggerRequestBuilder;
 import co.novu.models.operations.SubscribersControllerCreateSubscriberRequestBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import com.example.notification_service.user.UserEvent;
 import org.mockito.ArgumentCaptor;
+
+import java.net.http.HttpResponse;
 
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
@@ -60,7 +65,7 @@ class NovuClientTest {
 
     @Test
     void upsertSubscriber_createsOrUpdatesSubscriber() {
-        client.upsertSubscriber(new Recipient("42", "Jane", "Doe", "jane@example.com", null));
+        client.upsertSubscriber(new UserEvent("e1", "UserCreated", "42", "Jane", "Doe", "jane@example.com", null));
 
         var captor = ArgumentCaptor.forClass(CreateSubscriberRequestDto.class);
         verify(createBuilder).failIfExists(false);
@@ -74,5 +79,31 @@ class NovuClientTest {
         assertThat(request.phone().get()).isNull();
         assertThat(request.locale().isPresent()).isFalse();
         assertThat(request.timezone().isPresent()).isFalse();
+    }
+
+    @Test
+    void deleteSubscriber_deletesSubscriber() {
+        client.deleteSubscriber("42");
+
+        verify(novu.subscribers()).delete("42");
+    }
+
+    @Test
+    void deleteSubscriber_ignoresMissingSubscriber() {
+        when(novu.subscribers().delete("42")).thenThrow(novu(404));
+
+        assertThatCode(() -> client.deleteSubscriber("42")).doesNotThrowAnyException();
+    }
+
+    @Test
+    void deleteSubscriber_rethrowsOtherErrors() {
+        when(novu.subscribers().delete("42")).thenThrow(novu(500));
+
+        assertThatThrownBy(() -> client.deleteSubscriber("42")).isInstanceOf(APIException.class);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static APIException novu(int code) {
+        return new APIException("novu error", code, "{}".getBytes(), mock(HttpResponse.class), null);
     }
 }
