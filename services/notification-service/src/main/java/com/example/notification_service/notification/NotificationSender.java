@@ -11,8 +11,7 @@ public class NotificationSender {
     private final NovuClient novuClient;
 
     public void send(Notification notification) {
-        Recipient recipient = notification.recipient();
-        novuClient.upsertSubscriber(recipient);
-        novuClient.trigger(notification.type().getWorkflowId(), recipient.id(), notification.data(), notification.eventId());
+        novuClient.trigger(notification.type().getWorkflowId(), notification.recipientId(),
+                notification.payload(), notification.eventId());
     }
 }

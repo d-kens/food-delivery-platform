@@ -7,6 +7,8 @@ import com.example.user_service.dto.DeleteAccountRequestDto;
 import com.example.user_service.dto.UpdateUserRequestDto;
 import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.entity.User;
+import com.example.user_service.event.NotificationEvent;
+import com.example.user_service.event.UserEvent;
 import com.example.user_service.exception.AccountNotFoundException;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.InvalidCurrentPasswordException;
@@ -17,6 +19,7 @@ import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
 import com.example.user_service.exception.UserDeletedException;
 import com.example.user_service.exception.UserNotFoundException;
 import com.example.user_service.exception.UserSuspendedException;
+import com.example.user_service.outbox.OutboxService;
 import com.example.user_service.repository.UserRepository;
 import com.example.user_service.service.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
@@ -54,6 +57,7 @@ class UserServiceTest {
     @Mock private UserMapper userMapper;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private RefreshTokenService refreshTokenService;
+    @Mock private OutboxService outboxService;
 
     @InjectMocks private UserService userService;
 
@@ -175,6 +179,35 @@ class UserServiceTest {
         assertThat(user.getEmail()).isEqualTo("jane.doe@gmail.com");
         assertThat(user.getPhoneNumber()).isEqualTo("0707127309");
         verify(userMapper).toUserResponse(user);
+    }
+
+    @Test
+    void updateCurrentUser_savesUserUpdatedEventWithNewState_whenSomethingChanged() {
+        var user = user(UserStatus.ACTIVE);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+
+        userService.updateCurrentUser(USER_ID, new UpdateUserRequestDto("Janet", null, null, null, null));
+
+        var captor = ArgumentCaptor.forClass(UserEvent.class);
+        verify(outboxService).saveUserEvent(captor.capture());
+        var event = captor.getValue();
+        assertThat(event.eventType()).isEqualTo(UserEvent.USER_UPDATED);
+        assertThat(event.eventId()).isNotNull();
+        assertThat(event.occurredAt()).isNotNull();
+        assertThat(event.userId()).isEqualTo(USER_ID);
+        assertThat(event.firstName()).isEqualTo("Janet");
+        assertThat(event.lastName()).isEqualTo("Doe");
+        assertThat(event.email()).isEqualTo("jane.doe@gmail.com");
+    }
+
+    @Test
+    void updateCurrentUser_savesNoEvent_whenNothingChanged() {
+        var user = user(UserStatus.ACTIVE);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+
+        userService.updateCurrentUser(USER_ID, new UpdateUserRequestDto(" Jane ", "Doe", "jane.doe@gmail.com", null, null));
+
+        verify(outboxService, never()).saveUserEvent(any());
     }
 
     @Test
@@ -305,6 +338,22 @@ class UserServiceTest {
     }
 
     @Test
+    void deleteCurrentUser_savesUserDeletedEvent() {
+        var user = user(UserStatus.ACTIVE);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("OldPassw0rd!", "hashed")).thenReturn(true);
+
+        userService.deleteCurrentUser(USER_ID, new DeleteAccountRequestDto("OldPassw0rd!"));
+
+        var captor = ArgumentCaptor.forClass(UserEvent.class);
+        verify(outboxService).saveUserEvent(captor.capture());
+        var event = captor.getValue();
+        assertThat(event.eventType()).isEqualTo(UserEvent.USER_DELETED);
+        assertThat(event.userId()).isEqualTo(USER_ID);
+        assertThat(event.email()).isNull();
+    }
+
+    @Test
     void deleteCurrentUser_throws_andChangesNothing_whenCurrentPasswordIsWrong() {
         var user = user(UserStatus.ACTIVE);
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
@@ -318,6 +367,7 @@ class UserServiceTest {
         assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
         assertThat(user.getDeletedAt()).isNull();
         verify(refreshTokenService, never()).revokeAllFor(any());
+        verify(outboxService, never()).saveUserEvent(any());
     }
 
     @Test
@@ -381,6 +431,23 @@ class UserServiceTest {
     }
 
     @Test
+    void changePassword_savesUpdatedPasswordNotification() {
+        var user = user(UserStatus.ACTIVE);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("OldPassw0rd!", "hashed")).thenReturn(true);
+
+        userService.changePassword(USER_ID, new ChangePasswordRequestDto("OldPassw0rd!", "NewPassw0rd!"));
+
+        var captor = ArgumentCaptor.forClass(NotificationEvent.class);
+        verify(outboxService).saveNotification(captor.capture());
+        var notification = captor.getValue();
+        assertThat(notification.type()).isEqualTo(NotificationEvent.UPDATED_PASSWORD);
+        assertThat(notification.eventId()).isNotNull();
+        assertThat(notification.recipientId()).isEqualTo(USER_ID);
+        assertThat(notification.payload()).containsEntry("firstName", "Jane").containsKey("changedAt");
+    }
+
+    @Test
     void changePassword_throws_whenCurrentPasswordIsWrong() {
         var user = user(UserStatus.ACTIVE);
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
@@ -394,6 +461,7 @@ class UserServiceTest {
         assertThat(user.getPasswordHash()).isEqualTo("hashed");
         verify(passwordEncoder, never()).encode(anyString());
         verify(refreshTokenService, never()).revokeAllFor(any());
+        verify(outboxService, never()).saveNotification(any());
     }
 
     @Test

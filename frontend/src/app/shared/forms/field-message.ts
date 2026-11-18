@@ -27,7 +27,9 @@ export class FieldMessage {
   readonly warning = input<string | null>(null);
   readonly hint = input<string | null>(null);
 
-  protected readonly state = computed(() => (this.error() ? 'error' : this.warning() ? 'warning' : 'hint'));
+  protected readonly state = computed(() =>
+    this.error() ? 'error' : this.warning() ? 'warning' : 'hint',
+  );
 
   protected readonly toneClass = computed(() => {
     switch (this.state()) {

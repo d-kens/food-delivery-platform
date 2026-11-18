@@ -22,7 +22,8 @@ describe('Header mobile menu', () => {
 
   afterEach(() => (document.body.style.overflow = ''));
 
-  const toggle = () => compiled.querySelector<HTMLButtonElement>('button[aria-controls="mobile-menu"]')!;
+  const toggle = () =>
+    compiled.querySelector<HTMLButtonElement>('button[aria-controls="mobile-menu"]')!;
   const menu = () => compiled.querySelector('#mobile-menu');
 
   const open = async () => {
@@ -99,9 +100,15 @@ describe('Header mobile menu', () => {
       http = TestBed.inject(HttpTestingController);
       const auth = TestBed.inject(AuthService);
       auth.login({ email: 'jane.doe@gmail.com', password: 'secret123' }).subscribe();
-      http.expectOne((r) => r.url.endsWith('/auth/login')).flush({
-        userId: '1', firstName: 'Jane', lastName: 'Doe', email: 'jane.doe@gmail.com', roles: ['USER'],
-      });
+      http
+        .expectOne((r) => r.url.endsWith('/auth/login'))
+        .flush({
+          userId: '1',
+          firstName: 'Jane',
+          lastName: 'Doe',
+          email: 'jane.doe@gmail.com',
+          roles: ['USER'],
+        });
       await fixture.whenStable();
     });
 
@@ -109,10 +116,14 @@ describe('Header mobile menu', () => {
 
     it('should greet the user and log them out', async () => {
       expect(compiled.textContent).toContain('Hi, Jane');
-      const logoutButton = [...compiled.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Log out')!;
+      const logoutButton = [...compiled.querySelectorAll('button')].find(
+        (b) => b.textContent?.trim() === 'Log out',
+      )!;
 
       logoutButton.click();
-      http.expectOne((r) => r.url.endsWith('/auth/logout')).flush(null, { status: 204, statusText: 'No Content' });
+      http
+        .expectOne((r) => r.url.endsWith('/auth/logout'))
+        .flush(null, { status: 204, statusText: 'No Content' });
       await fixture.whenStable();
 
       expect(compiled.textContent).not.toContain('Hi, Jane');
@@ -139,11 +150,20 @@ describe('Header mobile menu', () => {
 
     beforeEach(async () => {
       http = TestBed.inject(HttpTestingController);
-      TestBed.inject(AuthService).login({ email: 'admin@gmail.com', password: 'secret123' }).subscribe();
-      http.expectOne((r) => r.url.endsWith('/auth/login')).flush({
-        userId: '1', firstName: 'Ada', lastName: 'Admin', email: 'admin@gmail.com', roles: ['ADMIN', 'USER'],
-        phoneNumber: null, status: 'ACTIVE',
-      });
+      TestBed.inject(AuthService)
+        .login({ email: 'admin@gmail.com', password: 'secret123' })
+        .subscribe();
+      http
+        .expectOne((r) => r.url.endsWith('/auth/login'))
+        .flush({
+          userId: '1',
+          firstName: 'Ada',
+          lastName: 'Admin',
+          email: 'admin@gmail.com',
+          roles: ['ADMIN', 'USER'],
+          phoneNumber: null,
+          status: 'ACTIVE',
+        });
       await fixture.whenStable();
     });
 

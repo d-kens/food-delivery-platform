@@ -8,6 +8,8 @@ import com.example.user_service.dto.PageResponseDto;
 import com.example.user_service.dto.UpdateUserRequestDto;
 import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.entity.User;
+import com.example.user_service.event.NotificationEvent;
+import com.example.user_service.event.UserEvent;
 import com.example.user_service.exception.AccountNotFoundException;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.InvalidCurrentPasswordException;
@@ -18,6 +20,7 @@ import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
 import com.example.user_service.exception.UserDeletedException;
 import com.example.user_service.exception.UserNotFoundException;
 import com.example.user_service.exception.UserSuspendedException;
+import com.example.user_service.outbox.OutboxService;
 import com.example.user_service.repository.UserRepository;
 import com.example.user_service.service.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +46,7 @@ public class UserService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenService refreshTokenService;
+    private final OutboxService outboxService;
 
     @Transactional(readOnly = true)
     public UserResponseDto getCurrentUser(final UUID userId) {
@@ -52,9 +56,11 @@ public class UserService {
     @Transactional
     public UserResponseDto updateCurrentUser(final UUID userId, final UpdateUserRequestDto request) {
         var user = findActiveUser(userId);
+        var changed = false;
 
         if (request.email() != null && !request.email().trim().equals(user.getEmail())) {
             changeEmail(user, request.email().trim(), request.currentPassword());
+            changed = true;
         }
 
         if (request.phoneNumber() != null && !request.phoneNumber().equals(user.getPhoneNumber())) {
@@ -62,14 +68,21 @@ public class UserService {
                 throw new PhoneNumberAlreadyExistsException("An account with this phone number already exists");
             }
             user.setPhoneNumber(request.phoneNumber());
+            changed = true;
         }
 
-        if (request.firstName() != null) {
+        if (request.firstName() != null && !request.firstName().trim().equals(user.getFirstName())) {
             user.setFirstName(request.firstName().trim());
+            changed = true;
         }
 
-        if (request.lastName() != null) {
+        if (request.lastName() != null && !request.lastName().trim().equals(user.getLastName())) {
             user.setLastName(request.lastName().trim());
+            changed = true;
+        }
+
+        if (changed) {
+            outboxService.saveUserEvent(UserEvent.updated(user));
         }
 
         return userMapper.toUserResponse(user);
@@ -85,6 +98,7 @@ public class UserService {
 
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         refreshTokenService.revokeAllFor(userId);
+        outboxService.saveNotification(NotificationEvent.updatedPassword(user));
     }
 
     @Transactional(readOnly = true)
@@ -154,6 +168,7 @@ public class UserService {
         user.setDeletedAt(Instant.now());
 
         refreshTokenService.revokeAllFor(userId);
+        outboxService.saveUserEvent(UserEvent.deleted(userId));
     }
 
     private User findNotDeletedUser(final UUID userId) {

@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { AuthService } from '../../../core/auth/auth.service';
+import { ToastService } from '../../../shared/toast/toast.service';
 import { userResponse } from '../../../testing/users';
 import { UserDetail } from './user-detail';
 
@@ -32,6 +33,10 @@ describe('UserDetail', () => {
   afterEach(() => http.verify());
 
   const page = () => harness.routeNativeElement!;
+  const toastTexts = () =>
+    TestBed.inject(ToastService)
+      .toasts()
+      .map((toast) => `${toast.tone}: ${toast.text}`);
   const button = (text: string) =>
     [...page().querySelectorAll('button')].find((b) => b.textContent?.includes(text));
   const checkbox = (label: string) =>
@@ -74,7 +79,9 @@ describe('UserDetail', () => {
     await harness.fixture.whenStable();
 
     expect(page().textContent).toContain('Suspended');
-    expect(page().textContent).toContain('User suspended');
+    expect(toastTexts().join()).toContain(
+      'success: User suspended and logged out of every device.',
+    );
     expect(button('Reactivate user')).toBeTruthy();
   });
 
@@ -87,7 +94,7 @@ describe('UserDetail', () => {
     request.flush(null, { status: 204, statusText: 'No Content' });
     await harness.fixture.whenStable();
 
-    expect(page().textContent).toContain('User reactivated.');
+    expect(toastTexts().join()).toContain('success: User reactivated.');
   });
 
   it('should save changed roles', async () => {
@@ -104,7 +111,7 @@ describe('UserDetail', () => {
     request.flush(userResponse({ userId: 'user-2', roles: ['ADMIN', 'USER'] }));
     await harness.fixture.whenStable();
 
-    expect(page().textContent).toContain('Roles updated.');
+    expect(toastTexts().join()).toContain('success: Roles updated.');
     expect(button('Save roles')!.disabled).toBe(true);
   });
 
@@ -129,9 +136,7 @@ describe('UserDetail', () => {
       );
     await harness.fixture.whenStable();
 
-    expect(page().querySelector('[role="alert"]')?.textContent).toContain(
-      'This account has been deleted and cannot be changed',
-    );
+    expect(toastTexts()).toEqual(['error: This account has been deleted and cannot be changed']);
   });
 
   it('should hide the controls on your own account', async () => {

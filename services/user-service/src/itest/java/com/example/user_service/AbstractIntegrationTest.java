@@ -2,9 +2,14 @@ package com.example.user_service;
 
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NON_TEST)
+@TestPropertySource(properties = {
+        "outbox.relay.enabled=false",
+        "spring.kafka.admin.auto-create=false"
+})
 public abstract class AbstractIntegrationTest {
 
     // Started once and shared by every subclass; Testcontainers removes it when the JVM exits.

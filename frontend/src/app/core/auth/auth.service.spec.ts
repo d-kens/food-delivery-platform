@@ -25,7 +25,10 @@ describe('AuthService', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(withInterceptors([authRefreshInterceptor])), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(withInterceptors([authRefreshInterceptor])),
+        provideHttpClientTesting(),
+      ],
     });
     auth = TestBed.inject(AuthService);
     http = TestBed.inject(HttpTestingController);
@@ -38,7 +41,9 @@ describe('AuthService', () => {
   const isRefresh = (r: { url: string }) => r.url.endsWith('/auth/refresh-token');
 
   it('should log in and remember the user', async () => {
-    const result = firstValueFrom(auth.login({ email: 'jane.doe@gmail.com', password: 'secret123' }));
+    const result = firstValueFrom(
+      auth.login({ email: 'jane.doe@gmail.com', password: 'secret123' }),
+    );
 
     const request = http.expectOne((r) => r.url.endsWith('/auth/login'));
     expect(request.request.body).toEqual({ email: 'jane.doe@gmail.com', password: 'secret123' });
@@ -59,10 +64,17 @@ describe('AuthService', () => {
 
   it('should register without logging in', async () => {
     const result = firstValueFrom(
-      auth.register({ email: 'jane.doe@gmail.com', password: 'secret123', firstName: 'Jane', lastName: 'Doe' }),
+      auth.register({
+        email: 'jane.doe@gmail.com',
+        password: 'secret123',
+        firstName: 'Jane',
+        lastName: 'Doe',
+      }),
     );
 
-    http.expectOne((r) => r.url.endsWith('/auth/register')).flush({ id: 'user-1' }, { status: 201, statusText: 'Created' });
+    http
+      .expectOne((r) => r.url.endsWith('/auth/register'))
+      .flush({ id: 'user-1' }, { status: 201, statusText: 'Created' });
 
     await result;
     expect(auth.isLoggedIn()).toBe(false);
@@ -138,7 +150,9 @@ describe('AuthService', () => {
     });
 
     it('should end the session when refreshing fails', async () => {
-      const login = firstValueFrom(auth.login({ email: 'jane.doe@gmail.com', password: 'secret123' }));
+      const login = firstValueFrom(
+        auth.login({ email: 'jane.doe@gmail.com', password: 'secret123' }),
+      );
       http.expectOne((r) => r.url.endsWith('/auth/login')).flush(USER);
       await login;
 
@@ -170,7 +184,9 @@ describe('AuthService', () => {
 
   describe('logging out', () => {
     it('should call the logout endpoint and clear the session', async () => {
-      const login = firstValueFrom(auth.login({ email: 'jane.doe@gmail.com', password: 'secret123' }));
+      const login = firstValueFrom(
+        auth.login({ email: 'jane.doe@gmail.com', password: 'secret123' }),
+      );
       http.expectOne((r) => r.url.endsWith('/auth/login')).flush(USER);
       await login;
 
@@ -184,12 +200,16 @@ describe('AuthService', () => {
     });
 
     it('should clear the session even if the logout request fails', async () => {
-      const login = firstValueFrom(auth.login({ email: 'jane.doe@gmail.com', password: 'secret123' }));
+      const login = firstValueFrom(
+        auth.login({ email: 'jane.doe@gmail.com', password: 'secret123' }),
+      );
       http.expectOne((r) => r.url.endsWith('/auth/login')).flush(USER);
       await login;
 
       const logout = firstValueFrom(auth.logout(), { defaultValue: undefined });
-      http.expectOne((r) => r.url.endsWith('/auth/logout')).error(new ProgressEvent('error'), { status: 0 });
+      http
+        .expectOne((r) => r.url.endsWith('/auth/logout'))
+        .error(new ProgressEvent('error'), { status: 0 });
 
       await logout;
       expect(auth.isLoggedIn()).toBe(false);

@@ -2,13 +2,19 @@
 <p class="mt-2 text-zinc-600">Log in to order from your favourite restaurants.</p>
 
 @if (justRegistered()) {
-  <p class="mt-5 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-800 ring-1 ring-emerald-200" role="status">
+  <p
+    class="mt-5 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-800 ring-1 ring-emerald-200"
+    role="status"
+  >
     Account created. Log in to start ordering.
   </p>
 }
 
 @if (notice()) {
-  <p class="mt-5 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-800 ring-1 ring-emerald-200" role="status">
+  <p
+    class="mt-5 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-800 ring-1 ring-emerald-200"
+    role="status"
+  >
     {{ notice() }}
   </p>
 }
@@ -60,16 +66,21 @@
       <app-field-message
         class="flex-1"
         fieldId="password"
-        [error]="error('password') ?? formError()"
+        [error]="error('password')"
         [warning]="capsLock() ? 'Caps Lock is on' : null"
       />
-      <a href="#" class="mt-1 shrink-0 text-xs leading-4 font-medium text-brand-600 hover:text-brand-700">
+      <a
+        routerLink="/forgot-password"
+        [state]="{ email: form.controls.email.value }"
+        class="mt-1 shrink-0 text-xs leading-4 font-medium text-brand-600 hover:text-brand-700"
+      >
         Forgot password?
       </a>
     </div>
   </div>
 
   <div class="pt-3">
+    <app-form-alert [message]="formError()" />
     <button type="submit" class="btn-primary gap-2" [disabled]="submitting()">
       @if (submitting()) {
         <app-spinner />
@@ -91,7 +102,11 @@
 
 <p class="mt-5 text-center text-sm text-zinc-600">
   New to Keroma?
-  <a routerLink="/register" queryParamsHandling="preserve" class="font-semibold text-brand-600 hover:text-brand-700">
+  <a
+    routerLink="/register"
+    queryParamsHandling="preserve"
+    class="font-semibold text-brand-600 hover:text-brand-700"
+  >
     Create an account
   </a>
 </p>

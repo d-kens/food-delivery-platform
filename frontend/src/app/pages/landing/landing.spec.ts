@@ -18,7 +18,9 @@ describe('Landing', () => {
   });
 
   it('should render the hero heading and address search', () => {
-    expect(compiled.querySelector('h1')?.textContent).toContain('Good food, delivered to your door.');
+    expect(compiled.querySelector('h1')?.textContent).toContain(
+      'Good food, delivered to your door.',
+    );
     expect(compiled.querySelector('input#address')).toBeTruthy();
   });
 

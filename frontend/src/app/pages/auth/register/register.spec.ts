@@ -1,6 +1,6 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { Register } from './register';
 
@@ -106,7 +106,10 @@ describe('Register', () => {
 
       const register = http.expectOne((r) => r.url.endsWith('/auth/register'));
       expect(register.request.body).toEqual({
-        firstName: 'Jane', lastName: 'Doe', email: 'jane.doe@gmail.com', password: 'Str0ngPassword!',
+        firstName: 'Jane',
+        lastName: 'Doe',
+        email: 'jane.doe@gmail.com',
+        password: 'Str0ngPassword!',
       });
       register.flush({ id: '1' }, { status: 201, statusText: 'Created' });
       await fixture.whenStable();
@@ -122,28 +125,44 @@ describe('Register', () => {
       await fillValidForm();
       await submit();
 
-      http.expectOne((r) => r.url.endsWith('/auth/register')).flush(
-        { title: 'Email already exists', detail: 'An account with this email already exists' },
-        { status: 409, statusText: 'Conflict' },
-      );
+      http
+        .expectOne((r) => r.url.endsWith('/auth/register'))
+        .flush(
+          { title: 'Email already exists', detail: 'An account with this email already exists' },
+          { status: 409, statusText: 'Conflict' },
+        );
       await fixture.whenStable();
 
-      expect(message('email').textContent).toContain('This email already has an account');
+      const alert = compiled.querySelector('[role="alert"]');
+      expect(alert?.textContent).toContain('This email already has an account.');
+      expect(alert?.querySelector('a')?.textContent).toContain('Log in instead');
+      expect(message('email').textContent).not.toContain('already has an account');
       expect(input('email').getAttribute('aria-invalid')).toBe('true');
-      expect(document.activeElement).toBe(input('email'));
+
+      await type('email', 'janet@gmail.com');
+      expect(compiled.querySelector('[role="alert"]')).toBeNull();
+      expect(input('email').getAttribute('aria-invalid')).toBeNull();
     });
 
     it('should show backend field errors on the matching fields', async () => {
       await fillValidForm();
       await submit();
 
-      http.expectOne((r) => r.url.endsWith('/auth/register')).flush(
-        { title: 'Validation failed', errors: { lastName: ['Last name must not exceed 100 characters'] } },
-        { status: 400, statusText: 'Bad Request' },
-      );
+      http
+        .expectOne((r) => r.url.endsWith('/auth/register'))
+        .flush(
+          {
+            title: 'Validation failed',
+            errors: { lastName: ['Last name must not exceed 100 characters'] },
+          },
+          { status: 400, statusText: 'Bad Request' },
+        );
       await fixture.whenStable();
 
-      expect(message('lastName').textContent).toContain('Last name must not exceed 100 characters');
+      expect(compiled.querySelector('[role="alert"]')?.textContent).toContain(
+        'Last name must not exceed 100 characters',
+      );
+      expect(input('lastName').getAttribute('aria-invalid')).toBe('true');
     });
   });
 });

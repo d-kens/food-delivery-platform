@@ -1,22 +1,23 @@
 package com.example.notification_service.notification;
 
+import com.example.notification_service.kafka.InvalidMessageException;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.util.Map;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record Notification(String eventId, NotificationType type, Recipient recipient, Map<String, Object> data) {
+public record Notification(String eventId, NotificationType type, String recipientId, Map<String, Object> payload) {
 
     public Notification {
         if (eventId == null || eventId.isBlank()) {
-            throw new InvalidNotificationException("Notification is missing eventId");
+            throw new InvalidMessageException("Notification is missing eventId");
         }
         if (type == null) {
-            throw new InvalidNotificationException("Notification is missing type");
+            throw new InvalidMessageException("Notification is missing type");
         }
-        if (recipient == null || recipient.id() == null || recipient.id().isBlank()) {
-            throw new InvalidNotificationException("Notification is missing recipient.id");
+        if (recipientId == null || recipientId.isBlank()) {
+            throw new InvalidMessageException("Notification is missing recipientId");
         }
-        data = data == null ? Map.of() : data;
+        payload = payload == null ? Map.of() : payload;
     }
 }

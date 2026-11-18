@@ -50,20 +50,6 @@
       </p>
     }
 
-    @if (message(); as note) {
-      <p
-        class="mt-6 rounded-lg px-4 py-3 text-sm ring-1"
-        [class]="
-          note.tone === 'success'
-            ? 'bg-emerald-50 text-emerald-800 ring-emerald-200'
-            : 'bg-red-50 text-red-800 ring-red-200'
-        "
-        [attr.role]="note.tone === 'success' ? 'status' : 'alert'"
-      >
-        {{ note.text }}
-      </p>
-    }
-
     @if (canEdit()) {
       <section class="mt-8" aria-labelledby="status-heading">
         <h2 id="status-heading" class="text-lg font-semibold">Status</h2>

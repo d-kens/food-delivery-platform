@@ -1,5 +1,14 @@
 import { DOCUMENT } from '@angular/common';
-import { Component, DestroyRef, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -59,8 +68,18 @@ export class Header {
   ];
 
   protected readonly mobileLinks = [
-    { label: 'Restaurants', description: 'Popular places near you', fragment: 'restaurants', icon: 'heroBuildingStorefront' },
-    { label: 'How it works', description: 'Order in three simple steps', fragment: 'how-it-works', icon: 'heroQuestionMarkCircle' },
+    {
+      label: 'Restaurants',
+      description: 'Popular places near you',
+      fragment: 'restaurants',
+      icon: 'heroBuildingStorefront',
+    },
+    {
+      label: 'How it works',
+      description: 'Order in three simple steps',
+      fragment: 'how-it-works',
+      icon: 'heroQuestionMarkCircle',
+    },
   ];
 
   protected readonly partnerLinks = [
@@ -147,7 +166,9 @@ export class Header {
     }
     const focusable = [
       this.menuToggle().nativeElement,
-      ...panel.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled])'),
+      ...panel.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled])',
+      ),
     ];
     const first = focusable[0];
     const last = focusable[focusable.length - 1];

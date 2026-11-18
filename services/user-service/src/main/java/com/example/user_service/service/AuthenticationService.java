@@ -6,16 +6,19 @@ import com.example.user_service.dto.RegistrationRequestDto;
 import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.common.Role;
 import com.example.user_service.entity.User;
+import com.example.user_service.event.UserEvent;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.InvalidCredentialException;
 import com.example.user_service.exception.InvalidRefreshTokenException;
 import com.example.user_service.exception.UserSuspendedException;
+import com.example.user_service.outbox.OutboxService;
 import com.example.user_service.repository.UserRepository;
 import com.example.user_service.security.JwtService;
 import com.example.user_service.service.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.EnumSet;
 
@@ -27,7 +30,9 @@ public class AuthenticationService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenService refreshTokenService;
+    private final OutboxService outboxService;
 
+    @Transactional
     public RegistrationResponseDto register(final RegistrationRequestDto request) {
 
         if (userRepository.existsByEmail(request.email())) {
@@ -38,7 +43,8 @@ public class AuthenticationService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRoles(EnumSet.of(Role.USER));
 
-        userRepository.save(user);
+        userRepository.saveAndFlush(user);
+        outboxService.saveUserEvent(UserEvent.created(user));
 
         return userMapper.toRegistrationResponse(user);
     }

@@ -22,7 +22,9 @@ export const authRefreshInterceptor: HttpInterceptorFn = (request, next) => {
           auth.clearSession();
           return throwError(() => error);
         }),
-        switchMap(() => next(request.clone({ context: request.context.set(RETRIED_AFTER_REFRESH, true) }))),
+        switchMap(() =>
+          next(request.clone({ context: request.context.set(RETRIED_AFTER_REFRESH, true) })),
+        ),
       );
     }),
   );

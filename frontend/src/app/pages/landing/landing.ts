@@ -2,7 +2,12 @@ import { NgOptimizedImage } from '@angular/common';
 import { Component, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { heroArrowRight, heroDevicePhoneMobile, heroHeart, heroMapPin } from '@ng-icons/heroicons/outline';
+import {
+  heroArrowRight,
+  heroDevicePhoneMobile,
+  heroHeart,
+  heroMapPin,
+} from '@ng-icons/heroicons/outline';
 import { heroHeartSolid, heroStarSolid } from '@ng-icons/heroicons/solid';
 
 interface Category {
@@ -29,7 +34,16 @@ interface Step {
 @Component({
   selector: 'app-landing',
   imports: [RouterLink, NgOptimizedImage, NgIcon],
-  viewProviders: [provideIcons({ heroArrowRight, heroDevicePhoneMobile, heroHeart, heroMapPin, heroHeartSolid, heroStarSolid })],
+  viewProviders: [
+    provideIcons({
+      heroArrowRight,
+      heroDevicePhoneMobile,
+      heroHeart,
+      heroMapPin,
+      heroHeartSolid,
+      heroStarSolid,
+    }),
+  ],
   templateUrl: './landing.html',
 })
 export class Landing {
@@ -136,15 +150,18 @@ export class Landing {
   protected readonly steps: Step[] = [
     {
       title: 'Tell us where you are',
-      description: 'Enter your address and see every restaurant that delivers to you, with honest delivery times.',
+      description:
+        'Enter your address and see every restaurant that delivers to you, with honest delivery times.',
     },
     {
       title: 'Pick what you are craving',
-      description: 'Browse full menus, customise your order and pay by M-Pesa or card in a few taps.',
+      description:
+        'Browse full menus, customise your order and pay by M-Pesa or card in a few taps.',
     },
     {
       title: 'Follow it to your door',
-      description: 'Track your rider live on the map. We will let you know the moment your food arrives.',
+      description:
+        'Track your rider live on the map. We will let you know the moment your food arrives.',
     },
   ];
 
@@ -162,8 +179,7 @@ export class Landing {
     });
   }
 
-  protected onSearch(event: Event, address: string): void {
+  protected onSearch(event: Event): void {
     event.preventDefault();
-    console.debug('Search restaurants near', address);
   }
 }

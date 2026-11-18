@@ -13,7 +13,7 @@
         autocapitalize="words"
         class="form-input"
         aria-describedby="firstName-message"
-        [attr.aria-invalid]="error('firstName') ? true : null"
+        [attr.aria-invalid]="isInvalid('firstName') ? true : null"
       />
       <app-field-message fieldId="firstName" [error]="error('firstName')" />
     </div>
@@ -27,7 +27,7 @@
         autocapitalize="words"
         class="form-input"
         aria-describedby="lastName-message"
-        [attr.aria-invalid]="error('lastName') ? true : null"
+        [attr.aria-invalid]="isInvalid('lastName') ? true : null"
       />
       <app-field-message fieldId="lastName" [error]="error('lastName')" />
     </div>
@@ -45,7 +45,7 @@
       placeholder="you@example.com"
       class="form-input"
       aria-describedby="email-message"
-      [attr.aria-invalid]="error('email') ? true : null"
+      [attr.aria-invalid]="isInvalid('email') ? true : null"
     />
     <app-field-message fieldId="email" [error]="error('email')" />
   </div>
@@ -62,7 +62,7 @@
         autocomplete="new-password"
         class="form-input pr-12"
         aria-describedby="password-message"
-        [attr.aria-invalid]="error('password') ? true : null"
+        [attr.aria-invalid]="isInvalid('password') ? true : null"
         (keydown)="onPasswordKey($event)"
         (keyup)="onPasswordKey($event)"
         (blur)="capsLock.set(false)"
@@ -79,26 +79,40 @@
     </div>
     <app-field-message
       fieldId="password"
-      [error]="error('password') ?? formError()"
+      [error]="error('password')"
       [warning]="capsLock() ? 'Caps Lock is on' : null"
     />
   </div>
 
-  <div class="space-y-3 pt-3">
-    <button type="submit" class="btn-primary gap-2" [disabled]="submitting()">
-      @if (submitting()) {
-        <app-spinner />
-        Creating your account…
-      } @else {
-        Create account
+  <div class="pt-3">
+    <app-form-alert [message]="formError()">
+      @if (emailTaken()) {
+        <a
+          routerLink="/login"
+          queryParamsHandling="preserve"
+          [state]="{ email: form.controls.email.value }"
+          class="mt-1 inline-block font-semibold underline underline-offset-2 hover:text-red-900"
+        >
+          Log in instead
+        </a>
       }
-    </button>
+    </app-form-alert>
+    <div class="space-y-3">
+      <button type="submit" class="btn-primary gap-2" [disabled]="submitting()">
+        @if (submitting()) {
+          <app-spinner />
+          Creating your account…
+        } @else {
+          Create account
+        }
+      </button>
 
-    <p class="text-center text-xs text-zinc-500">
-      By signing up you agree to our
-      <a href="#" class="underline underline-offset-2 hover:text-zinc-800">Terms</a> and
-      <a href="#" class="underline underline-offset-2 hover:text-zinc-800">Privacy Policy</a>.
-    </p>
+      <p class="text-center text-xs text-zinc-500">
+        By signing up you agree to our
+        <a href="#" class="underline underline-offset-2 hover:text-zinc-800">Terms</a> and
+        <a href="#" class="underline underline-offset-2 hover:text-zinc-800">Privacy Policy</a>.
+      </p>
+    </div>
   </div>
 </form>
 
@@ -112,7 +126,11 @@
 
 <p class="mt-5 text-center text-sm text-zinc-600">
   Already have an account?
-  <a routerLink="/login" queryParamsHandling="preserve" class="font-semibold text-brand-600 hover:text-brand-700">
+  <a
+    routerLink="/login"
+    queryParamsHandling="preserve"
+    class="font-semibold text-brand-600 hover:text-brand-700"
+  >
     Log in
   </a>
 </p>
