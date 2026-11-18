@@ -54,7 +54,8 @@ Topic `notifications`, key: recipient ID.
 
 | Type | Sent when |
 |---|---|
-| `UPDATED_PASSWORD` | A user changes their password |
+| `UPDATED_PASSWORD` | A user changes or resets their password |
+| `PASSWORD_RESET` | A user asks to reset a forgotten password; `payload` has `resetUrl` and `expiresInMinutes` |
 
 ## Configuration
 

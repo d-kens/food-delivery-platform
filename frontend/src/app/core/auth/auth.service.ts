@@ -28,6 +28,18 @@ export class AuthService {
     return this.http.post<unknown>(`${this.authUrl}/register`, request).pipe(map(() => undefined));
   }
 
+  forgotPassword(email: string): Observable<void> {
+    return this.http
+      .post<unknown>(`${this.authUrl}/forgot-password`, { email })
+      .pipe(map(() => undefined));
+  }
+
+  resetPassword(token: string, newPassword: string): Observable<void> {
+    return this.http
+      .post<unknown>(`${this.authUrl}/reset-password`, { token, newPassword })
+      .pipe(map(() => undefined));
+  }
+
   logout(): Observable<void> {
     return this.http.post<void>(`${this.authUrl}/logout`, null).pipe(
       catchError(() => of(undefined)),

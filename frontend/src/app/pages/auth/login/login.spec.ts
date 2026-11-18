@@ -233,6 +233,12 @@ describe('Login', () => {
       );
     });
 
+    it('should confirm a password reset', async () => {
+      expect(await arriveWith('password-reset')).toContain(
+        'Password reset. Log in with your new password.',
+      );
+    });
+
     it('should confirm an account deletion', async () => {
       expect(await arriveWith('account-deleted')).toContain('Your account has been deleted.');
     });

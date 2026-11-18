@@ -1,16 +1,20 @@
-import { Component, DestroyRef, ElementRef, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { heroEye, heroEyeSlash } from '@ng-icons/heroicons/outline';
-import { heroCheckCircleSolid } from '@ng-icons/heroicons/solid';
 import { finalize } from 'rxjs';
 import { genericErrorMessage, problemOf, statusOf } from '../../../core/http/problem-detail';
 import { UsersService } from '../../../core/users/users.service';
 import { FieldMessage } from '../../../shared/forms/field-message';
 import { FormAlert } from '../../../shared/forms/form-alert';
 import { focusFirstInvalid, notBlank, shouldShowError } from '../../../shared/forms/form-utils';
+import {
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PasswordRequirements,
+} from '../../../shared/forms/password-requirements';
 import { SettingsSection } from '../../../shared/settings-section/settings-section';
 import { Spinner } from '../../../shared/spinner/spinner';
 
@@ -32,12 +36,18 @@ const FIELDS: { id: Field; label: string; autocomplete: string; wide: boolean }[
   },
 ];
 
-const MIN_LENGTH = 8;
-
 @Component({
   selector: 'app-password',
-  imports: [ReactiveFormsModule, NgIcon, FieldMessage, FormAlert, SettingsSection, Spinner],
-  viewProviders: [provideIcons({ heroEye, heroEyeSlash, heroCheckCircleSolid })],
+  imports: [
+    ReactiveFormsModule,
+    NgIcon,
+    FieldMessage,
+    FormAlert,
+    PasswordRequirements,
+    SettingsSection,
+    Spinner,
+  ],
+  viewProviders: [provideIcons({ heroEye, heroEyeSlash })],
   templateUrl: './password.html',
 })
 export class Password {
@@ -55,23 +65,19 @@ export class Password {
 
   protected readonly form = this.fb.group({
     currentPassword: ['', notBlank],
-    newPassword: ['', [notBlank, Validators.minLength(MIN_LENGTH), Validators.maxLength(100)]],
+    newPassword: [
+      '',
+      [
+        notBlank,
+        Validators.minLength(PASSWORD_MIN_LENGTH),
+        Validators.maxLength(PASSWORD_MAX_LENGTH),
+      ],
+    ],
     confirmPassword: ['', notBlank],
   });
 
-  private readonly formValue = toSignal(this.form.valueChanges, {
+  protected readonly formValue = toSignal(this.form.valueChanges, {
     initialValue: this.form.getRawValue(),
-  });
-
-  protected readonly requirements = computed(() => {
-    const { newPassword = '', confirmPassword = '' } = this.formValue();
-    return [
-      { label: `At least ${MIN_LENGTH} characters`, met: newPassword.length >= MIN_LENGTH },
-      {
-        label: 'Passwords match',
-        met: confirmPassword.length > 0 && confirmPassword === newPassword,
-      },
-    ];
   });
 
   constructor() {

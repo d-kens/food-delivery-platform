@@ -63,6 +63,18 @@ export const routes: Routes = [
         title: 'Create an account | Keroma',
         loadComponent: () => import('./pages/auth/register/register').then((m) => m.Register),
       },
+      {
+        path: 'forgot-password',
+        title: 'Forgot password | Keroma',
+        loadComponent: () =>
+          import('./pages/auth/forgot-password/forgot-password').then((m) => m.ForgotPassword),
+      },
+      {
+        path: 'reset-password',
+        title: 'Reset password | Keroma',
+        loadComponent: () =>
+          import('./pages/auth/reset-password/reset-password').then((m) => m.ResetPassword),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

@@ -23,6 +23,7 @@ type Field = 'email' | 'password';
 const NOTICES: Record<string, string> = {
   'password-changed': 'Password changed. Log in with your new password.',
   'account-deleted': 'Your account has been deleted.',
+  'password-reset': 'Password reset. Log in with your new password.',
 };
 
 const REQUIRED: Record<Field, string> = {

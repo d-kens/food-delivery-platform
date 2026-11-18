@@ -70,7 +70,8 @@
         [warning]="capsLock() ? 'Caps Lock is on' : null"
       />
       <a
-        href="#"
+        routerLink="/forgot-password"
+        [state]="{ email: form.controls.email.value }"
         class="mt-1 shrink-0 text-xs leading-4 font-medium text-brand-600 hover:text-brand-700"
       >
         Forgot password?

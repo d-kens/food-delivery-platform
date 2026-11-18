@@ -38,6 +38,11 @@ security:
   csrf:
     cookie-secure: ${CSRF_COOKIE_SECURE:true}
 
+  password-reset:
+    ttl: ${PASSWORD_RESET_TTL:30m}
+    request-interval: ${PASSWORD_RESET_REQUEST_INTERVAL:1m}
+    url: ${PASSWORD_RESET_URL:http://localhost:4200/reset-password}
+
   refresh-token:
     ttl: ${REFRESH_TOKEN_TTL:7d}
     cookie-secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}
