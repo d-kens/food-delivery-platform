@@ -9,7 +9,7 @@ import { ToastService } from './toast.service';
   viewProviders: [provideIcons({ heroXMark })],
   template: `
     <div
-      class="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex flex-col gap-2 sm:right-4 sm:left-auto sm:w-96"
+      class="pointer-events-none fixed inset-x-4 top-20 z-[60] flex flex-col gap-2 sm:right-6 sm:left-auto sm:w-96"
       aria-live="polite"
     >
       @for (toast of toasts.toasts(); track toast.id) {
