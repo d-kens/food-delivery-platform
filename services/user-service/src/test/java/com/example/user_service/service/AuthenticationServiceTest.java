@@ -1,5 +1,8 @@
 package com.example.user_service.service;
 
+import com.example.user_service.event.UserEvent;
+import com.example.user_service.outbox.OutboxService;
+import org.mockito.ArgumentCaptor;
 import com.example.user_service.dto.AuthRequestDto;
 import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.dto.RegistrationRequestDto;
@@ -41,6 +44,7 @@ class AuthenticationServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private RefreshTokenService refreshTokenService;
+    @Mock private OutboxService outboxService;
 
     @InjectMocks private AuthenticationService authenticationService;
 
@@ -68,7 +72,35 @@ class AuthenticationServiceTest {
         var response = authenticationService.register(request);
 
         assertThat(response).isSameAs(expectedResponse);
-        verify(userRepository).save(user);
+        verify(userRepository).saveAndFlush(user);
+    }
+
+    @Test
+    void register_savesUserCreatedEvent() {
+        var request = createRegistrationRequest();
+        var user = createUser(request);
+        when(userRepository.existsByEmail(request.email())).thenReturn(false);
+        when(userMapper.toUserEntity(request)).thenReturn(user);
+
+        authenticationService.register(request);
+
+        var captor = ArgumentCaptor.forClass(UserEvent.class);
+        verify(outboxService).saveUserEvent(captor.capture());
+        var event = captor.getValue();
+        assertThat(event.eventType()).isEqualTo(UserEvent.USER_CREATED);
+        assertThat(event.firstName()).isEqualTo(request.firstName());
+        assertThat(event.lastName()).isEqualTo(request.lastName());
+        assertThat(event.email()).isEqualTo(request.email());
+    }
+
+    @Test
+    void register_whenEmailExists_savesNoEvent() {
+        var request = createRegistrationRequest();
+        when(userRepository.existsByEmail(request.email())).thenReturn(true);
+
+        assertThrows(EmailAlreadyExistsException.class, () -> authenticationService.register(request));
+
+        verifyNoInteractions(outboxService);
     }
 
     @Test
@@ -102,7 +134,7 @@ class AuthenticationServiceTest {
         });
 
         assertEquals("An account with this email already exists", exception.getMessage());
-        verify(userRepository, never()).save(any());
+        verify(userRepository, never()).saveAndFlush(any());
     }
 
     @Test
