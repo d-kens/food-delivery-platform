@@ -1,9 +1,10 @@
 package com.example.user_service.service;
 
+import com.example.user_service.common.Emails;
 import com.example.user_service.common.UserStatus;
 import com.example.user_service.dto.AuthRequestDto;
 import com.example.user_service.dto.RegistrationRequestDto;
-import com.example.user_service.dto.RegistrationResponseDto;
+import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.common.Role;
 import com.example.user_service.entity.User;
 import com.example.user_service.event.UserEvent;
@@ -33,25 +34,28 @@ public class AuthenticationService {
     private final OutboxService outboxService;
 
     @Transactional
-    public RegistrationResponseDto register(final RegistrationRequestDto request) {
+    public UserResponseDto register(final RegistrationRequestDto request) {
 
-        if (userRepository.existsByEmail(request.email())) {
+        String email = Emails.normalize(request.email());
+
+        if (userRepository.existsByEmail(email)) {
             throw new EmailAlreadyExistsException("An account with this email already exists");
         }
 
         User user = userMapper.toUserEntity(request);
+        user.setEmail(email);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRoles(EnumSet.of(Role.USER));
 
         userRepository.saveAndFlush(user);
         outboxService.saveUserEvent(UserEvent.created(user));
 
-        return userMapper.toRegistrationResponse(user);
+        return userMapper.toUserResponse(user);
     }
 
 
     public LoginResult login(final AuthRequestDto request) {
-        User user = userRepository.findByEmail(request.email())
+        User user = userRepository.findByEmail(Emails.normalize(request.email()))
                 .orElseThrow(() -> new InvalidCredentialException("Invalid email or password"));
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {

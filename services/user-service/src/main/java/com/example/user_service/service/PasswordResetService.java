@@ -1,5 +1,6 @@
 package com.example.user_service.service;
 
+import com.example.user_service.common.Emails;
 import com.example.user_service.common.UserStatus;
 import com.example.user_service.config.PasswordResetProperties;
 import com.example.user_service.entity.PasswordResetToken;
@@ -22,7 +23,7 @@ public class PasswordResetService {
 
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository tokenRepository;
-    private final RefreshTokenGenerator tokenGenerator;
+    private final TokenGenerator tokenGenerator;
     private final RefreshTokenService refreshTokenService;
     private final PasswordEncoder passwordEncoder;
     private final OutboxService outboxService;
@@ -30,7 +31,7 @@ public class PasswordResetService {
 
     @Transactional
     public void requestReset(final String email) {
-        var user = userRepository.findByEmail(email.trim())
+        var user = userRepository.findByEmail(Emails.normalize(email))
                 .filter(found -> found.getStatus() == UserStatus.ACTIVE)
                 .orElse(null);
 

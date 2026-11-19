@@ -1,9 +1,8 @@
 package com.example.user_service.security;
 
-import org.junit.jupiter.api.BeforeEach;
+import com.example.user_service.config.RefreshTokenProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseCookie;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
 
@@ -11,15 +10,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class RefreshTokenCookieServiceTest {
 
-    private RefreshTokenCookieService refreshTokenCookieService;
-
-    @BeforeEach
-    void setUp() {
-        refreshTokenCookieService = new RefreshTokenCookieService();
-        ReflectionTestUtils.setField(refreshTokenCookieService, "refreshTokenTtl", Duration.ofDays(7));
-        ReflectionTestUtils.setField(refreshTokenCookieService, "cookieSecure", true);
-        ReflectionTestUtils.setField(refreshTokenCookieService, "cookiePath", "/api/user-service/auth");
-    }
+    private final RefreshTokenCookieService refreshTokenCookieService = new RefreshTokenCookieService(
+            new RefreshTokenProperties(Duration.ofDays(7), true, "/api/user-service/auth"));
 
     @Test
     void createRefreshTokenCookie_returnsCookieWithTokenAndSecureAttributes() {
@@ -49,10 +41,10 @@ class RefreshTokenCookieServiceTest {
 
     @Test
     void createRefreshTokenCookie_usesConfiguredSecureAndPath() {
-        ReflectionTestUtils.setField(refreshTokenCookieService, "cookieSecure", false);
-        ReflectionTestUtils.setField(refreshTokenCookieService, "cookiePath", "/auth");
+        var devCookieService = new RefreshTokenCookieService(
+                new RefreshTokenProperties(Duration.ofDays(7), false, "/auth"));
 
-        ResponseCookie cookie = refreshTokenCookieService.createRefreshTokenCookie("refresh-token");
+        ResponseCookie cookie = devCookieService.createRefreshTokenCookie("refresh-token");
 
         assertThat(cookie.isSecure()).isFalse();
         assertThat(cookie.getPath()).isEqualTo("/auth");

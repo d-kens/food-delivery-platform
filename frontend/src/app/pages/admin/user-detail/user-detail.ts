@@ -37,13 +37,15 @@ export class UserDetail {
   protected readonly selectedRoles = signal<Set<Role> | null>(null);
   protected readonly busy = signal<'status' | 'roles' | null>(null);
 
-  protected readonly isSelf = computed(() => this.user.value()?.userId === this.auth.user()?.id);
+  protected readonly isSelf = computed(
+    () => this.user.value()?.userId === this.auth.user()?.userId,
+  );
   protected readonly isDeleted = computed(() => this.user.value()?.status === 'DELETED');
   protected readonly canEdit = computed(() => !this.isSelf() && !this.isDeleted());
   protected readonly notFound = computed(() => statusOf(this.user.error()) === 404);
 
   protected readonly roles = computed(
-    () => this.selectedRoles() ?? new Set((this.user.value()?.roles ?? []) as Role[]),
+    () => this.selectedRoles() ?? new Set(this.user.value()?.roles ?? []),
   );
   protected readonly rolesChanged = computed(() => {
     const current = new Set(this.user.value()?.roles ?? []);

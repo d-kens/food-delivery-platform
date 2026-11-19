@@ -38,7 +38,7 @@ class PasswordResetServiceTest {
 
     private final UserRepository userRepository = mock(UserRepository.class);
     private final PasswordResetTokenRepository tokenRepository = mock(PasswordResetTokenRepository.class);
-    private final RefreshTokenGenerator tokenGenerator = mock(RefreshTokenGenerator.class);
+    private final TokenGenerator tokenGenerator = mock(TokenGenerator.class);
     private final RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
     private final OutboxService outboxService = mock(OutboxService.class);
@@ -90,6 +90,15 @@ class PasswordResetServiceTest {
                 .containsEntry("firstName", "Jane")
                 .containsEntry("resetUrl", "http://localhost:4200/reset-password?token=raw-token")
                 .containsEntry("expiresInMinutes", 30L);
+    }
+
+    @Test
+    void requestReset_looksUpUserByNormalizedEmail() {
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+
+        service.requestReset(" " + EMAIL.toUpperCase() + " ");
+
+        verify(userRepository).findByEmail(EMAIL);
     }
 
     @Test

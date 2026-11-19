@@ -3,7 +3,6 @@ package com.example.user_service.service.mapper;
 import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.dto.RegistrationRequestDto;
 import com.example.user_service.common.Role;
-import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.entity.User;
 import com.example.user_service.common.UserStatus;
 import org.junit.jupiter.api.Test;
@@ -50,13 +49,6 @@ class UserMapperTest {
     void toUserEntity_defaultsStatusToActive() {
         var user = userMapper.toUserEntity(registrationRequest());
         assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
-    }
-
-    @Test
-    void toRegistrationResponse_mapsAllFieldsAndEnumNames() {
-        var response = userMapper.toRegistrationResponse(user());
-        assertThat(response).isEqualTo(new RegistrationResponseDto(
-                ID, EMAIL, FIRST_NAME, LAST_NAME, List.of("RIDER", "USER"), "ACTIVE", CREATED_AT));
     }
 
     @Test

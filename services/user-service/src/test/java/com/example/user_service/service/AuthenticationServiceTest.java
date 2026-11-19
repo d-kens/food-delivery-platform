@@ -6,7 +6,6 @@ import org.mockito.ArgumentCaptor;
 import com.example.user_service.dto.AuthRequestDto;
 import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.dto.RegistrationRequestDto;
-import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.common.Role;
 import com.example.user_service.common.UserStatus;
 import com.example.user_service.entity.RefreshToken;
@@ -25,7 +24,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -54,20 +52,20 @@ class AuthenticationServiceTest {
 
         var user = createUser(request);
 
-        var expectedResponse = new RegistrationResponseDto(
-                UUID.randomUUID(),
-                request.email(),
+        var expectedResponse = new UserResponseDto(
+                UUID.randomUUID().toString(),
                 request.firstName(),
                 request.lastName(),
+                request.email(),
                 List.of("USER"),
-                "ACTIVE",
-                Instant.now()
+                null,
+                UserStatus.ACTIVE
         );
 
         when(userRepository.existsByEmail(request.email())).thenReturn(false);
         when(passwordEncoder.encode(request.password())).thenReturn("encoded-password");
         when(userMapper.toUserEntity(request)).thenReturn(user);
-        when(userMapper.toRegistrationResponse(user)).thenReturn(expectedResponse);
+        when(userMapper.toUserResponse(user)).thenReturn(expectedResponse);
 
         var response = authenticationService.register(request);
 
@@ -91,6 +89,19 @@ class AuthenticationServiceTest {
         assertThat(event.firstName()).isEqualTo(request.firstName());
         assertThat(event.lastName()).isEqualTo(request.lastName());
         assertThat(event.email()).isEqualTo(request.email());
+    }
+
+    @Test
+    void register_normalizesEmailBeforeCheckingAndSaving() {
+        var request = new RegistrationRequestDto(" Jane.Doe@Gmail.com ", "T3st@12367", "Jane", "Doe");
+        var user = createUser(request);
+        when(userRepository.existsByEmail("jane.doe@gmail.com")).thenReturn(false);
+        when(userMapper.toUserEntity(request)).thenReturn(user);
+
+        authenticationService.register(request);
+
+        assertThat(user.getEmail()).isEqualTo("jane.doe@gmail.com");
+        verify(userRepository).existsByEmail("jane.doe@gmail.com");
     }
 
     @Test
@@ -161,6 +172,18 @@ class AuthenticationServiceTest {
         assertThat(loginResult.user()).isSameAs(expectedResponse);
         assertThat(loginResult.accessToken()).isEqualTo("access-token");
         assertThat(loginResult.refreshToken()).isEqualTo("refresh-token");
+    }
+
+    @Test
+    void login_looksUpUserByNormalizedEmail() {
+        var request = new AuthRequestDto(" Jane.Doe@Gmail.com ", "T3st@12367");
+        var user = createActiveUser("jane.doe@gmail.com");
+        when(userRepository.findByEmail("jane.doe@gmail.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(request.password(), user.getPasswordHash())).thenReturn(true);
+
+        authenticationService.login(request);
+
+        verify(userRepository).findByEmail("jane.doe@gmail.com");
     }
 
     @Test

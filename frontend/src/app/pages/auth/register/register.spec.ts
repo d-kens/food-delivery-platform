@@ -111,7 +111,7 @@ describe('Register', () => {
         email: 'jane.doe@gmail.com',
         password: 'Str0ngPassword!',
       });
-      register.flush({ id: '1' }, { status: 201, statusText: 'Created' });
+      register.flush({ userId: '1' }, { status: 201, statusText: 'Created' });
       await fixture.whenStable();
 
       http.expectNone((r) => r.url.endsWith('/auth/login'));

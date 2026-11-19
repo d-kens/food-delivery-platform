@@ -175,4 +175,22 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="007-lowercase-user-emails" author="d-kens">
+        <preConditions onFail="HALT" onFailMessage="Users exist whose emails differ only by case or surrounding spaces; merge or rename them before running this changeset">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM (
+                    SELECT LOWER(TRIM(email)) FROM users GROUP BY LOWER(TRIM(email)) HAVING COUNT(*) > 1
+                ) duplicates
+            </sqlCheck>
+        </preConditions>
+
+        <sql>UPDATE users SET email = LOWER(TRIM(email)) WHERE email &lt;&gt; LOWER(TRIM(email))</sql>
+
+        <sql>ALTER TABLE users ADD CONSTRAINT ck_users_email_normalized CHECK (email = LOWER(TRIM(email)))</sql>
+
+        <rollback>
+            <sql>ALTER TABLE users DROP CONSTRAINT ck_users_email_normalized</sql>
+        </rollback>
+    </changeSet>
+
 </databaseChangeLog>

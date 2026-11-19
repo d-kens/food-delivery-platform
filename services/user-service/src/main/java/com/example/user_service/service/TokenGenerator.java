@@ -11,7 +11,7 @@ import java.util.Base64;
 import java.util.HexFormat;
 
 @Component
-public class RefreshTokenGenerator {
+public class TokenGenerator {
 
     private static final int TOKEN_BYTES = 32;
     private final SecureRandom secureRandom = new SecureRandom();

@@ -4,7 +4,6 @@ import com.example.user_service.dto.AuthRequestDto;
 import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.exception.InvalidRefreshTokenException;
 import com.example.user_service.dto.RegistrationRequestDto;
-import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.security.AccessTokenCookieService;
 import com.example.user_service.security.RefreshTokenCookieService;
 import com.example.user_service.service.AuthenticationService;
@@ -33,7 +32,7 @@ public class AuthenticationController {
 
     @PostMapping("register")
     @ResponseStatus(HttpStatus.CREATED)
-    public RegistrationResponseDto register(
+    public UserResponseDto register(
             @Valid @RequestBody final RegistrationRequestDto request
     ){
         return authenticationService.register(request);

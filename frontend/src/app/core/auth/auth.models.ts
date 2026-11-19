@@ -19,16 +19,7 @@ export interface UserResponse {
   firstName: string;
   lastName: string;
   email: string;
-  roles: string[];
+  roles: Role[];
   phoneNumber: string | null;
   status: UserStatus;
-}
-
-export interface SessionUser {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phoneNumber: string | null;
-  roles: string[];
 }

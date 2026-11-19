@@ -1,28 +1,22 @@
 package com.example.user_service.security;
 
-
-import org.springframework.beans.factory.annotation.Value;
+import com.example.user_service.config.RefreshTokenProperties;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 
 @Component
+@RequiredArgsConstructor
 public class RefreshTokenCookieService {
-
-    @Value("${security.refresh-token.ttl}")
-    private Duration refreshTokenTtl;
-
-    @Value("${security.refresh-token.cookie-secure}")
-    private boolean cookieSecure;
-
-    @Value("${security.refresh-token.cookie-path}")
-    private String cookiePath;
 
     public static final String COOKIE_NAME = "refresh_token";
 
+    private final RefreshTokenProperties properties;
+
     public ResponseCookie createRefreshTokenCookie(String refreshToken) {
-        return buildCookie(refreshToken, refreshTokenTtl);
+        return buildCookie(refreshToken, properties.ttl());
     }
 
     public ResponseCookie clearRefreshTokenCookie() {
@@ -32,10 +26,10 @@ public class RefreshTokenCookieService {
     private ResponseCookie buildCookie(String value, Duration maxAge) {
         return ResponseCookie
                 .from(COOKIE_NAME, value)
-                .path(cookiePath)
+                .path(properties.cookiePath())
                 .maxAge(maxAge)
                 .httpOnly(true)
-                .secure(cookieSecure)
+                .secure(properties.cookieSecure())
                 .sameSite("Strict")
                 .build();
     }

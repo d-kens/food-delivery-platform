@@ -1,5 +1,6 @@
 package com.example.user_service.service;
 
+import com.example.user_service.common.Emails;
 import com.example.user_service.common.Role;
 import com.example.user_service.common.UserStatus;
 import com.example.user_service.dto.ChangePasswordRequestDto;
@@ -58,8 +59,9 @@ public class UserService {
         var user = findActiveUser(userId);
         var changed = false;
 
-        if (request.email() != null && !request.email().trim().equals(user.getEmail())) {
-            changeEmail(user, request.email().trim(), request.currentPassword());
+        var email = Emails.normalize(request.email());
+        if (email != null && !email.equals(user.getEmail())) {
+            changeEmail(user, email, request.currentPassword());
             changed = true;
         }
 

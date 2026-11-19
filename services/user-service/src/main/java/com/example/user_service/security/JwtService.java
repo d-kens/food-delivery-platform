@@ -12,7 +12,6 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -28,7 +27,7 @@ public class JwtService {
                 .subject(user.getId().toString())
                 .issuedAt(now)
                 .expiresAt(now.plus(jwtProperties.expiration()))
-                .claim("roles", roleNames(user))
+                .claim("roles", Role.sortedNames(user.getRoles()))
                 .build();
 
         JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256)
@@ -36,10 +35,6 @@ public class JwtService {
                 .build();
 
         return jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
-    }
-
-    private List<String> roleNames(User user) {
-        return user.getRoles().stream().map(Role::name).sorted().toList();
     }
 
 }

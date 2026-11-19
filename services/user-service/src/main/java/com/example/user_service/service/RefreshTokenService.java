@@ -1,16 +1,15 @@
 package com.example.user_service.service;
 
 
+import com.example.user_service.config.RefreshTokenProperties;
 import com.example.user_service.entity.RefreshToken;
 import com.example.user_service.entity.User;
 import com.example.user_service.exception.InvalidRefreshTokenException;
 import com.example.user_service.repository.RefreshTokenRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -18,19 +17,17 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RefreshTokenService {
 
-    private final RefreshTokenGenerator refreshTokenGenerator;
+    private final TokenGenerator tokenGenerator;
     private final RefreshTokenRepository refreshTokenRepository;
-
-    @Value("${security.refresh-token.ttl}")
-    private Duration refreshTokenTtl;
+    private final RefreshTokenProperties properties;
 
     public String createFor(final User user) {
-        String rawToken = refreshTokenGenerator.generate();
+        String rawToken = tokenGenerator.generate();
 
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
-                .tokenHash(refreshTokenGenerator.hash(rawToken))
-                .expiresAt(Instant.now().plus(refreshTokenTtl))
+                .tokenHash(tokenGenerator.hash(rawToken))
+                .expiresAt(Instant.now().plus(properties.ttl()))
                 .build();
 
         refreshTokenRepository.save(refreshToken);
@@ -39,7 +36,7 @@ public class RefreshTokenService {
 
     @Transactional(readOnly = true)
     public RefreshToken validate(final String rawToken) {
-        String hashedToken = refreshTokenGenerator.hash(rawToken);
+        String hashedToken = tokenGenerator.hash(rawToken);
 
         var refreshToken = refreshTokenRepository.findByTokenHash(hashedToken)
                 .orElseThrow(InvalidRefreshTokenException::new);
@@ -53,7 +50,7 @@ public class RefreshTokenService {
 
     @Transactional
     public void revoke(final String rawToken) {
-        refreshTokenRepository.findByTokenHash(refreshTokenGenerator.hash(rawToken))
+        refreshTokenRepository.findByTokenHash(tokenGenerator.hash(rawToken))
                 .filter(refreshToken -> !refreshToken.isRevoked())
                 .ifPresent(refreshToken -> refreshToken.setRevokedAt(Instant.now()));
     }

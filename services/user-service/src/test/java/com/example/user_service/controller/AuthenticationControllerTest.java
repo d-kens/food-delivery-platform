@@ -4,7 +4,6 @@ import com.example.user_service.common.UserStatus;
 import com.example.user_service.dto.AuthRequestDto;
 import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.dto.RegistrationRequestDto;
-import com.example.user_service.dto.RegistrationResponseDto;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.InvalidCredentialException;
 import com.example.user_service.exception.InvalidRefreshTokenException;
@@ -28,7 +27,6 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -98,21 +96,21 @@ class AuthenticationControllerTest {
     @Test
     void register_returnsCreatedWithResponseBody() throws Exception {
         var id = UUID.randomUUID();
-        when(authenticationService.register(any(RegistrationRequestDto.class))).thenReturn(new RegistrationResponseDto(
-                id,
-                "jane.doe@gmail.com",
+        when(authenticationService.register(any(RegistrationRequestDto.class))).thenReturn(new UserResponseDto(
+                id.toString(),
                 "Jane",
                 "Doe",
+                "jane.doe@gmail.com",
                 List.of("USER"),
-                "ACTIVE",
-                Instant.parse("2026-01-01T10:00:00Z")
+                null,
+                UserStatus.ACTIVE
         ));
 
         mockMvc.perform(post(REGISTER_URL)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_REQUEST))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(id.toString()))
+                .andExpect(jsonPath("$.userId").value(id.toString()))
                 .andExpect(jsonPath("$.email").value("jane.doe@gmail.com"))
                 .andExpect(jsonPath("$.roles", contains("USER")))
                 .andExpect(jsonPath("$.status").value("ACTIVE"));

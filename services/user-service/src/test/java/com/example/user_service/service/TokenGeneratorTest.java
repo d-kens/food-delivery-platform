@@ -4,13 +4,13 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class RefreshTokenGeneratorTest {
+class TokenGeneratorTest {
 
-    private final RefreshTokenGenerator refreshTokenGenerator = new RefreshTokenGenerator();
+    private final TokenGenerator tokenGenerator = new TokenGenerator();
 
     @Test
     void generate_returnsUrlSafeTokenOf32Bytes() {
-        String token = refreshTokenGenerator.generate();
+        String token = tokenGenerator.generate();
 
         // 32 bytes in Base64 without padding is 43 characters
         assertThat(token).hasSize(43);
@@ -19,14 +19,14 @@ class RefreshTokenGeneratorTest {
 
     @Test
     void generate_returnsDifferentTokenEachCall() {
-        assertThat(refreshTokenGenerator.generate()).isNotEqualTo(refreshTokenGenerator.generate());
+        assertThat(tokenGenerator.generate()).isNotEqualTo(tokenGenerator.generate());
     }
 
     @Test
     void hash_returnsSameSha256HexForSameInput() {
-        String hash = refreshTokenGenerator.hash("raw-token");
+        String hash = tokenGenerator.hash("raw-token");
 
-        assertThat(hash).isEqualTo(refreshTokenGenerator.hash("raw-token"));
+        assertThat(hash).isEqualTo(tokenGenerator.hash("raw-token"));
         assertThat(hash).hasSize(64);
         assertThat(hash).matches("[0-9a-f]+");
         assertThat(hash).isNotEqualTo("raw-token");
@@ -34,6 +34,6 @@ class RefreshTokenGeneratorTest {
 
     @Test
     void hash_returnsDifferentHashForDifferentInput() {
-        assertThat(refreshTokenGenerator.hash("token-a")).isNotEqualTo(refreshTokenGenerator.hash("token-b"));
+        assertThat(tokenGenerator.hash("token-a")).isNotEqualTo(tokenGenerator.hash("token-b"));
     }
 }

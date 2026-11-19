@@ -223,6 +223,29 @@ class UserServiceTest {
     }
 
     @Test
+    void updateCurrentUser_savesNormalizedEmail() {
+        var user = user(UserStatus.ACTIVE);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("secret123", "hashed")).thenReturn(true);
+        when(userRepository.existsByEmail("janet@gmail.com")).thenReturn(false);
+
+        userService.updateCurrentUser(USER_ID, new UpdateUserRequestDto(null, null, " Janet@Gmail.com ", null, "secret123"));
+
+        assertThat(user.getEmail()).isEqualTo("janet@gmail.com");
+    }
+
+    @Test
+    void updateCurrentUser_treatsEmailWithDifferentCaseAsUnchanged() {
+        var user = user(UserStatus.ACTIVE);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+
+        userService.updateCurrentUser(USER_ID, new UpdateUserRequestDto(null, null, "Jane.Doe@Gmail.com", null, null));
+
+        verify(passwordEncoder, never()).matches(any(), any());
+        verify(outboxService, never()).saveUserEvent(any());
+    }
+
+    @Test
     void updateCurrentUser_doesNotRequirePassword_whenEmailIsUnchanged() {
         var user = user(UserStatus.ACTIVE);
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));

@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -76,12 +77,11 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(registrationJson(EMAIL)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").isNotEmpty())
+                .andExpect(jsonPath("$.userId").isNotEmpty())
                 .andExpect(jsonPath("$.email").value(EMAIL))
-                .andExpect(jsonPath("$.phoneNumber").doesNotExist())
+                .andExpect(jsonPath("$.phoneNumber").value(nullValue()))
                 .andExpect(jsonPath("$.roles", contains("USER")))
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
-                .andExpect(jsonPath("$.createdAt").isNotEmpty())
                 .andExpect(jsonPath("$.password").doesNotExist())
                 .andExpect(jsonPath("$.passwordHash").doesNotExist());
 
@@ -108,6 +108,35 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
                         .content(registrationJson(EMAIL)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.title").value("Email already exists"));
+
+        assertThat(userRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void register_storesLowercaseEmail_andLoginIgnoresCase() throws Exception {
+        mockMvc.perform(post(REGISTER_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registrationJson("Jane.Doe@Gmail.COM")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.email").value(EMAIL));
+
+        assertThat(userRepository.findByEmail(EMAIL)).isPresent();
+
+        mockMvc.perform(post(LOGIN_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson("JANE.DOE@gmail.com", PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(EMAIL));
+    }
+
+    @Test
+    void register_returnsConflict_whenEmailExistsWithDifferentCase() throws Exception {
+        registerUser();
+
+        mockMvc.perform(post(REGISTER_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registrationJson("Jane.Doe@Gmail.com")))
+                .andExpect(status().isConflict());
 
         assertThat(userRepository.count()).isEqualTo(1);
     }

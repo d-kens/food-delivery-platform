@@ -2,7 +2,7 @@ import { Component, DestroyRef, ElementRef, computed, inject, signal } from '@an
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize, map, startWith } from 'rxjs';
-import { SessionUser } from '../../../core/auth/auth.models';
+import { UserResponse } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
 import { genericErrorMessage, problemOf, statusOf } from '../../../core/http/problem-detail';
 import { UpdateProfileRequest } from '../../../core/users/users.models';
@@ -163,7 +163,7 @@ export class Profile {
     return request;
   }
 
-  private fill(user: SessionUser): void {
+  private fill(user: UserResponse): void {
     this.form.reset(
       {
         firstName: user.firstName,

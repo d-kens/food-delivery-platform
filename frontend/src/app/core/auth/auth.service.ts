@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, ReplaySubject, catchError, finalize, map, of, shareReplay, take } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { LoginRequest, RegisterRequest, SessionUser, UserResponse } from './auth.models';
+import { LoginRequest, RegisterRequest, UserResponse } from './auth.models';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -10,15 +10,15 @@ export class AuthService {
   private readonly authUrl = `${environment.apiUrl}/user-service/auth`;
   private readonly usersUrl = `${environment.apiUrl}/user-service/users`;
 
-  private readonly currentUser = signal<SessionUser | null>(null);
-  private refreshInFlight: Observable<SessionUser> | null = null;
+  private readonly currentUser = signal<UserResponse | null>(null);
+  private refreshInFlight: Observable<UserResponse> | null = null;
   private readonly restored = new ReplaySubject<void>(1);
 
   readonly user = this.currentUser.asReadonly();
   readonly isLoggedIn = computed(() => this.currentUser() !== null);
   readonly isAdmin = computed(() => this.currentUser()?.roles.includes('ADMIN') ?? false);
 
-  login(request: LoginRequest): Observable<SessionUser> {
+  login(request: LoginRequest): Observable<UserResponse> {
     return this.http
       .post<UserResponse>(`${this.authUrl}/login`, request)
       .pipe(map((response) => this.startSession(response)));
@@ -48,7 +48,7 @@ export class AuthService {
     );
   }
 
-  restoreSession(): Observable<SessionUser | null> {
+  restoreSession(): Observable<UserResponse | null> {
     return this.http.get<UserResponse>(`${this.usersUrl}/me`).pipe(
       map((response) => this.startSession(response)),
       catchError(() => {
@@ -63,11 +63,11 @@ export class AuthService {
     return this.restored.pipe(take(1));
   }
 
-  updateSessionUser(response: UserResponse): SessionUser {
+  updateSessionUser(response: UserResponse): UserResponse {
     return this.startSession(response);
   }
 
-  refresh(): Observable<SessionUser> {
+  refresh(): Observable<UserResponse> {
     this.refreshInFlight ??= this.http
       .post<UserResponse>(`${this.authUrl}/refresh-token`, null)
       .pipe(
@@ -86,17 +86,9 @@ export class AuthService {
     return url.startsWith(`${this.authUrl}/`);
   }
 
-  private startSession(response: UserResponse): SessionUser {
-    const user: SessionUser = {
-      id: response.userId,
-      firstName: response.firstName,
-      lastName: response.lastName,
-      email: response.email,
-      phoneNumber: response.phoneNumber,
-      roles: response.roles,
-    };
-    this.currentUser.set(user);
-    return user;
+  private startSession(response: UserResponse): UserResponse {
+    this.currentUser.set(response);
+    return response;
   }
 }
 

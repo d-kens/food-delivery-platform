@@ -30,8 +30,6 @@ export const routes: Routes = [
             loadComponent: () =>
               import('./pages/account/security/security').then((m) => m.Security),
           },
-          { path: 'password', redirectTo: 'security' },
-          { path: 'delete', redirectTo: 'security' },
         ],
       },
       {

@@ -1,5 +1,6 @@
 package com.example.user_service.service;
 
+import com.example.user_service.config.RefreshTokenProperties;
 import com.example.user_service.entity.RefreshToken;
 import com.example.user_service.entity.User;
 import com.example.user_service.exception.InvalidRefreshTokenException;
@@ -8,10 +9,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -28,22 +27,23 @@ class RefreshTokenServiceTest {
 
     private static final Duration TTL = Duration.ofDays(7);
 
-    @Mock private RefreshTokenGenerator refreshTokenGenerator;
+    @Mock private TokenGenerator tokenGenerator;
     @Mock private RefreshTokenRepository refreshTokenRepository;
 
-    @InjectMocks private RefreshTokenService refreshTokenService;
+    private RefreshTokenService refreshTokenService;
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(refreshTokenService, "refreshTokenTtl", TTL);
+        refreshTokenService = new RefreshTokenService(
+                tokenGenerator, refreshTokenRepository, new RefreshTokenProperties(TTL, true, "/"));
     }
 
     @Test
     void createFor_savesHashedTokenWithExpiryAndReturnsRawToken() {
         var user = User.builder().id(UUID.randomUUID()).build();
 
-        when(refreshTokenGenerator.generate()).thenReturn("raw-token");
-        when(refreshTokenGenerator.hash("raw-token")).thenReturn("hashed-token");
+        when(tokenGenerator.generate()).thenReturn("raw-token");
+        when(tokenGenerator.hash("raw-token")).thenReturn("hashed-token");
 
         Instant before = Instant.now();
         String result = refreshTokenService.createFor(user);
@@ -65,7 +65,7 @@ class RefreshTokenServiceTest {
     void validate_whenTokenIsValid_returnsRefreshToken() {
         var savedRefreshToken = createRefreshToken(User.builder().id(UUID.randomUUID()).build());
 
-        when(refreshTokenGenerator.hash("raw-token")).thenReturn("hashed-token");
+        when(tokenGenerator.hash("raw-token")).thenReturn("hashed-token");
         when(refreshTokenRepository.findByTokenHash("hashed-token")).thenReturn(Optional.of(savedRefreshToken));
 
         var result = refreshTokenService.validate("raw-token");
@@ -75,7 +75,7 @@ class RefreshTokenServiceTest {
 
     @Test
     void validate_whenTokenHashIsNotFound_throwsInvalidRefreshTokenException() {
-        when(refreshTokenGenerator.hash("raw-token")).thenReturn("hashed-token");
+        when(tokenGenerator.hash("raw-token")).thenReturn("hashed-token");
         when(refreshTokenRepository.findByTokenHash("hashed-token")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> refreshTokenService.validate("raw-token"))
@@ -88,7 +88,7 @@ class RefreshTokenServiceTest {
         var expiredToken = createRefreshToken(User.builder().id(UUID.randomUUID()).build());
         expiredToken.setExpiresAt(Instant.now().minusSeconds(1));
 
-        when(refreshTokenGenerator.hash("raw-token")).thenReturn("hashed-token");
+        when(tokenGenerator.hash("raw-token")).thenReturn("hashed-token");
         when(refreshTokenRepository.findByTokenHash("hashed-token")).thenReturn(Optional.of(expiredToken));
 
         assertThatThrownBy(() -> refreshTokenService.validate("raw-token"))
@@ -101,7 +101,7 @@ class RefreshTokenServiceTest {
         var revokedToken = createRefreshToken(User.builder().id(UUID.randomUUID()).build());
         revokedToken.setRevokedAt(Instant.now());
 
-        when(refreshTokenGenerator.hash("raw-token")).thenReturn("hashed-token");
+        when(tokenGenerator.hash("raw-token")).thenReturn("hashed-token");
         when(refreshTokenRepository.findByTokenHash("hashed-token")).thenReturn(Optional.of(revokedToken));
 
         assertThatThrownBy(() -> refreshTokenService.validate("raw-token"))
@@ -121,7 +121,7 @@ class RefreshTokenServiceTest {
     @Test
     void revoke_marksTokenAsRevoked() {
         var token = RefreshToken.builder().tokenHash("hashed").expiresAt(Instant.now().plus(TTL)).build();
-        when(refreshTokenGenerator.hash("raw-token")).thenReturn("hashed");
+        when(tokenGenerator.hash("raw-token")).thenReturn("hashed");
         when(refreshTokenRepository.findByTokenHash("hashed")).thenReturn(Optional.of(token));
 
         refreshTokenService.revoke("raw-token");
@@ -133,7 +133,7 @@ class RefreshTokenServiceTest {
     void revoke_keepsOriginalRevocationTime_whenAlreadyRevoked() {
         var revokedAt = Instant.parse("2026-01-01T10:00:00Z");
         var token = RefreshToken.builder().tokenHash("hashed").revokedAt(revokedAt).build();
-        when(refreshTokenGenerator.hash("raw-token")).thenReturn("hashed");
+        when(tokenGenerator.hash("raw-token")).thenReturn("hashed");
         when(refreshTokenRepository.findByTokenHash("hashed")).thenReturn(Optional.of(token));
 
         refreshTokenService.revoke("raw-token");
@@ -143,7 +143,7 @@ class RefreshTokenServiceTest {
 
     @Test
     void revoke_doesNothing_whenTokenIsUnknown() {
-        when(refreshTokenGenerator.hash("unknown")).thenReturn("hashed-unknown");
+        when(tokenGenerator.hash("unknown")).thenReturn("hashed-unknown");
         when(refreshTokenRepository.findByTokenHash("hashed-unknown")).thenReturn(Optional.empty());
 
         refreshTokenService.revoke("unknown");

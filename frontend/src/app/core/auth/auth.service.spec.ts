@@ -74,7 +74,7 @@ describe('AuthService', () => {
 
     http
       .expectOne((r) => r.url.endsWith('/auth/register'))
-      .flush({ id: 'user-1' }, { status: 201, statusText: 'Created' });
+      .flush(USER, { status: 201, statusText: 'Created' });
 
     await result;
     expect(auth.isLoggedIn()).toBe(false);
