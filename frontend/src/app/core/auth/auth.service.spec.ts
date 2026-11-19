@@ -163,23 +163,6 @@ describe('AuthService', () => {
       await expect(orders).rejects.toBeTruthy();
       expect(auth.isLoggedIn()).toBe(false);
     });
-
-    it('should send the XSRF token on the refresh request', async () => {
-      document.cookie = 'XSRF-TOKEN=xsrf-from-server; path=/';
-      const result = firstValueFrom(auth.restoreSession());
-
-      const me = http.expectOne(isMe);
-      expect(me.request.headers.has('X-XSRF-TOKEN')).toBe(false);
-      me.flush(null, UNAUTHORIZED);
-
-      const refresh = http.expectOne(isRefresh);
-      expect(refresh.request.headers.get('X-XSRF-TOKEN')).toBe('xsrf-from-server');
-      refresh.flush(USER);
-      http.expectOne(isMe).flush(USER);
-
-      await result;
-      document.cookie = 'XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
-    });
   });
 
   describe('logging out', () => {

@@ -46,7 +46,7 @@ describe('UserDetail', () => {
 
   const open = async (user = userResponse({ userId: 'user-2', phoneNumber: '+254707127309' })) => {
     await harness.navigateByUrl(`/admin/users/${user.userId}`);
-    http.expectOne(`/users/${user.userId}`).flush(user);
+    http.expectOne(`/api/user-service/users/${user.userId}`).flush(user);
     await harness.fixture.whenStable();
   };
 
@@ -62,7 +62,7 @@ describe('UserDetail', () => {
   it('should show not found for a missing user', async () => {
     await harness.navigateByUrl('/admin/users/missing');
     http
-      .expectOne('/users/missing')
+      .expectOne('/api/user-service/users/missing')
       .flush({ title: 'User Not Found' }, { status: 404, statusText: 'Not Found' });
     await harness.fixture.whenStable();
 
@@ -73,7 +73,7 @@ describe('UserDetail', () => {
     await open();
     button('Suspend user')!.click();
 
-    const request = http.expectOne('/users/user-2/status');
+    const request = http.expectOne('/api/user-service/users/user-2/status');
     expect(request.request.body).toEqual({ status: 'SUSPENDED' });
     request.flush(null, { status: 204, statusText: 'No Content' });
     await harness.fixture.whenStable();
@@ -89,7 +89,7 @@ describe('UserDetail', () => {
     await open(userResponse({ userId: 'user-2', status: 'SUSPENDED' }));
     button('Reactivate user')!.click();
 
-    const request = http.expectOne('/users/user-2/status');
+    const request = http.expectOne('/api/user-service/users/user-2/status');
     expect(request.request.body).toEqual({ status: 'ACTIVE' });
     request.flush(null, { status: 204, statusText: 'No Content' });
     await harness.fixture.whenStable();
@@ -106,7 +106,7 @@ describe('UserDetail', () => {
     expect(button('Save roles')!.disabled).toBe(false);
     button('Save roles')!.click();
 
-    const request = http.expectOne('/users/user-2/roles');
+    const request = http.expectOne('/api/user-service/users/user-2/roles');
     expect([...request.request.body.roles].sort()).toEqual(['ADMIN', 'USER']);
     request.flush(userResponse({ userId: 'user-2', roles: ['ADMIN', 'USER'] }));
     await harness.fixture.whenStable();
@@ -129,7 +129,7 @@ describe('UserDetail', () => {
     button('Suspend user')!.click();
 
     http
-      .expectOne('/users/user-2/status')
+      .expectOne('/api/user-service/users/user-2/status')
       .flush(
         { detail: 'This account has been deleted and cannot be changed' },
         { status: 409, statusText: 'Conflict' },

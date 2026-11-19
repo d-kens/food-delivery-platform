@@ -41,7 +41,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -275,7 +274,7 @@ class AuthenticationControllerTest {
                 ResponseCookie.from(AccessTokenCookieService.COOKIE_NAME, "access-token").path("/").httpOnly(true).build()
         );
 
-        mockMvc.perform(post(REFRESH_TOKEN_URL).with(csrf())
+        mockMvc.perform(post(REFRESH_TOKEN_URL)
                     .cookie(new Cookie(RefreshTokenCookieService.COOKIE_NAME, refreshToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").doesNotExist())
@@ -291,7 +290,7 @@ class AuthenticationControllerTest {
         when(authenticationService.refreshToken(null))
                 .thenThrow(new InvalidRefreshTokenException());
 
-        mockMvc.perform(post(REFRESH_TOKEN_URL).with(csrf()))
+        mockMvc.perform(post(REFRESH_TOKEN_URL))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.title").value("Invalid Refresh Token"))
                 .andExpect(jsonPath("$.detail").value("Invalid or expired refresh token"));
@@ -305,7 +304,7 @@ class AuthenticationControllerTest {
         when(authenticationService.refreshToken(refreshToken))
                 .thenThrow(new InvalidRefreshTokenException());
 
-        mockMvc.perform(post(REFRESH_TOKEN_URL).with(csrf())
+        mockMvc.perform(post(REFRESH_TOKEN_URL)
                     .cookie(new Cookie(RefreshTokenCookieService.COOKIE_NAME, refreshToken)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.title").value("Invalid Refresh Token"))
@@ -320,7 +319,7 @@ class AuthenticationControllerTest {
         when(authenticationService.refreshToken(refreshToken))
                 .thenThrow(new UserSuspendedException("Your account has been suspended"));
 
-        mockMvc.perform(post(REFRESH_TOKEN_URL).with(csrf())
+        mockMvc.perform(post(REFRESH_TOKEN_URL)
                         .cookie(new Cookie(RefreshTokenCookieService.COOKIE_NAME, refreshToken)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.title").value("Account Suspended"))
@@ -335,7 +334,7 @@ class AuthenticationControllerTest {
     void refreshToken_clearsBothCookies_whenRefreshTokenIsInvalid() throws Exception {
         when(authenticationService.refreshToken("dead-token")).thenThrow(new InvalidRefreshTokenException());
 
-        mockMvc.perform(post(REFRESH_TOKEN_URL).with(csrf())
+        mockMvc.perform(post(REFRESH_TOKEN_URL)
                         .cookie(new Cookie(RefreshTokenCookieService.COOKIE_NAME, "dead-token")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(header().stringValues(HttpHeaders.SET_COOKIE, hasItems(
@@ -345,7 +344,7 @@ class AuthenticationControllerTest {
 
     @Test
     void logout_revokesRefreshTokenAndClearsBothCookies() throws Exception {
-        mockMvc.perform(post(LOGOUT_URL).with(csrf())
+        mockMvc.perform(post(LOGOUT_URL)
                         .cookie(new Cookie(RefreshTokenCookieService.COOKIE_NAME, "refresh-token")))
                 .andExpect(status().isNoContent())
                 .andExpect(header().stringValues(HttpHeaders.SET_COOKIE, hasItems(

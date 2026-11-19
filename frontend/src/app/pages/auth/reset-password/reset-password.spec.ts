@@ -59,7 +59,7 @@ describe('ResetPassword', () => {
 
     await submitPassword('NewPassw0rd!');
 
-    const request = http.expectOne('/auth/reset-password');
+    const request = http.expectOne('/api/user-service/auth/reset-password');
     expect(request.request.body).toEqual({ token: 'raw-token', newPassword: 'NewPassw0rd!' });
     request.flush(null, { status: 204, statusText: 'No Content' });
     await harness.fixture.whenStable();
@@ -77,7 +77,7 @@ describe('ResetPassword', () => {
     expect(page().querySelector('#confirmPassword-message')?.textContent).toContain(
       "Passwords don't match",
     );
-    http.expectNone('/auth/reset-password');
+    http.expectNone('/api/user-service/auth/reset-password');
   });
 
   it('should offer a new link when the server rejects the token', async () => {
@@ -85,7 +85,7 @@ describe('ResetPassword', () => {
     await submitPassword('NewPassw0rd!');
 
     http
-      .expectOne('/auth/reset-password')
+      .expectOne('/api/user-service/auth/reset-password')
       .flush(
         { title: 'Invalid reset link', detail: 'This reset link is invalid or has expired' },
         { status: 400, statusText: 'Bad Request' },

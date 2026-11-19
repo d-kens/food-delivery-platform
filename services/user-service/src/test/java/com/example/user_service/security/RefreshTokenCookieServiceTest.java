@@ -18,7 +18,7 @@ class RefreshTokenCookieServiceTest {
         refreshTokenCookieService = new RefreshTokenCookieService();
         ReflectionTestUtils.setField(refreshTokenCookieService, "refreshTokenTtl", Duration.ofDays(7));
         ReflectionTestUtils.setField(refreshTokenCookieService, "cookieSecure", true);
-        ReflectionTestUtils.setField(refreshTokenCookieService, "cookiePath", "/api/auth");
+        ReflectionTestUtils.setField(refreshTokenCookieService, "cookiePath", "/api/user-service/auth");
     }
 
     @Test
@@ -28,7 +28,7 @@ class RefreshTokenCookieServiceTest {
         assertThat(cookie.getName()).isEqualTo(RefreshTokenCookieService.COOKIE_NAME);
         assertThat(cookie.getValue()).isEqualTo("refresh-token");
         assertThat(cookie.getMaxAge()).isEqualTo(Duration.ofDays(7));
-        assertThat(cookie.getPath()).isEqualTo("/api/auth");
+        assertThat(cookie.getPath()).isEqualTo("/api/user-service/auth");
         assertThat(cookie.isHttpOnly()).isTrue();
         assertThat(cookie.isSecure()).isTrue();
         assertThat(cookie.getSameSite()).isEqualTo("Strict");
@@ -41,7 +41,7 @@ class RefreshTokenCookieServiceTest {
         assertThat(cookie.getName()).isEqualTo(RefreshTokenCookieService.COOKIE_NAME);
         assertThat(cookie.getValue()).isEmpty();
         assertThat(cookie.getMaxAge()).isEqualTo(Duration.ZERO);
-        assertThat(cookie.getPath()).isEqualTo("/api/auth");
+        assertThat(cookie.getPath()).isEqualTo("/api/user-service/auth");
         assertThat(cookie.isHttpOnly()).isTrue();
         assertThat(cookie.isSecure()).isTrue();
         assertThat(cookie.getSameSite()).isEqualTo("Strict");

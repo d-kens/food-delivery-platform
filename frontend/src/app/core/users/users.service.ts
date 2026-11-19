@@ -10,7 +10,7 @@ import { Page, UpdateProfileRequest, UserQuery } from './users.models';
 export class UsersService {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
-  private readonly usersUrl = `${environment.apiUrl}/users`;
+  private readonly usersUrl = `${environment.apiUrl}/user-service/users`;
 
   updateProfile(request: UpdateProfileRequest): Observable<UserResponse> {
     return this.http

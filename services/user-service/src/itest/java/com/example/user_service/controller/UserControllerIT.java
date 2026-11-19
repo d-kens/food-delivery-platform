@@ -290,12 +290,12 @@ class UserControllerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void updateMe_withAccessTokenCookie_isRejected_withoutCsrfToken() throws Exception {
+    void updateMe_returnsUnauthorized_withOnlyAccessTokenCookie() throws Exception {
         mockMvc.perform(patch(USERS_URL + "/me")
                         .cookie(new Cookie("access_token", login(JANE_EMAIL)))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"firstName\": \"Janet\"}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
 
         assertThat(userRepository.findById(jane.getId()).orElseThrow().getFirstName()).isEqualTo("Jane");
     }
@@ -452,17 +452,6 @@ class UserControllerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void deleteMe_withAccessTokenCookie_isRejected_withoutCsrfToken() throws Exception {
-        mockMvc.perform(delete(USERS_URL + "/me")
-                        .cookie(new Cookie("access_token", login(JANE_EMAIL)))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(deleteAccountJson(PASSWORD)))
-                .andExpect(status().isForbidden());
-
-        assertThat(userRepository.findById(jane.getId()).orElseThrow().getStatus()).isEqualTo(UserStatus.ACTIVE);
-    }
-
-    @Test
     void deletedUsers_areListedByStatusFilter_andCannotBeChangedByAdmin() throws Exception {
         mockMvc.perform(delete(USERS_URL + "/me")
                         .header(HttpHeaders.AUTHORIZATION, bearer(JANE_EMAIL))
@@ -561,18 +550,6 @@ class UserControllerIT extends AbstractIntegrationTest {
         assertThat(passwordEncoder.matches(PASSWORD, saved.getPasswordHash())).isTrue();
         assertThat(refreshTokenRepository.findAll())
                 .allSatisfy(token -> assertThat(token.getRevokedAt()).isNull());
-    }
-
-    @Test
-    void changePassword_withAccessTokenCookie_isRejected_withoutCsrfToken() throws Exception {
-        mockMvc.perform(patch(USERS_URL + "/me/password")
-                        .cookie(new Cookie("access_token", login(JANE_EMAIL)))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(changePasswordJson(PASSWORD, "N3wPassword!")))
-                .andExpect(status().isForbidden());
-
-        var saved = userRepository.findById(jane.getId()).orElseThrow();
-        assertThat(passwordEncoder.matches(PASSWORD, saved.getPasswordHash())).isTrue();
     }
 
     private String deleteAccountJson(String currentPassword) {

@@ -31,7 +31,7 @@ describe('UserList', () => {
   afterEach(() => http.verify());
 
   const page = () => harness.routeNativeElement!;
-  const listRequest = () => http.expectOne((r) => r.url === '/users');
+  const listRequest = () => http.expectOne((r) => r.url === '/api/user-service/users');
   const flushPage = async (
     request: TestRequest,
     content = [userResponse()],

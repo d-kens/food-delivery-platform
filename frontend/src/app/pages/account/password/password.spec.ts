@@ -74,7 +74,7 @@ describe('Password', () => {
     expect(message('currentPassword').textContent).toContain('Enter your current password');
     expect(message('newPassword').textContent).toContain('Enter a new password');
     expect(message('confirmPassword').textContent).toContain('Enter the new password again');
-    http.expectNone('/users/me/password');
+    http.expectNone('/api/user-service/users/me/password');
   });
 
   it('should reject a short new password', async () => {
@@ -90,7 +90,7 @@ describe('Password', () => {
     await submit();
 
     expect(message('confirmPassword').textContent).toContain("Passwords don't match");
-    http.expectNone('/users/me/password');
+    http.expectNone('/api/user-service/users/me/password');
   });
 
   it('should change the password, end the session and go to login with a notice', async () => {
@@ -100,7 +100,9 @@ describe('Password', () => {
     await type('confirmPassword', 'NewPassw0rd!');
     await submit();
 
-    http.expectOne('/users/me/password').flush(null, { status: 204, statusText: 'No Content' });
+    http
+      .expectOne('/api/user-service/users/me/password')
+      .flush(null, { status: 204, statusText: 'No Content' });
     await fixture.whenStable();
 
     expect(TestBed.inject(AuthService).isLoggedIn()).toBe(false);
@@ -114,7 +116,7 @@ describe('Password', () => {
     await submit();
 
     http
-      .expectOne('/users/me/password')
+      .expectOne('/api/user-service/users/me/password')
       .flush(
         { detail: 'Current password is incorrect' },
         { status: 400, statusText: 'Bad Request' },

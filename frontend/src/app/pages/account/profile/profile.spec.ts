@@ -72,7 +72,7 @@ describe('Profile', () => {
     await type('firstName', '  Janet ');
     await submit();
 
-    const request = http.expectOne('/users/me');
+    const request = http.expectOne('/api/user-service/users/me');
     expect(request.request.body).toEqual({ firstName: 'Janet' });
     request.flush(userResponse({ firstName: 'Janet', phoneNumber: '+254707127309' }));
     await fixture.whenStable();
@@ -91,11 +91,11 @@ describe('Profile', () => {
     expect(message('currentPassword').textContent).toContain(
       'Enter your current password to change your email',
     );
-    http.expectNone('/users/me');
+    http.expectNone('/api/user-service/users/me');
 
     await type('currentPassword', 'OldPassw0rd!');
     await submit();
-    expect(http.expectOne('/users/me').request.body).toEqual({
+    expect(http.expectOne('/api/user-service/users/me').request.body).toEqual({
       email: 'janet@gmail.com',
       currentPassword: 'OldPassw0rd!',
     });
@@ -111,7 +111,7 @@ describe('Profile', () => {
     await type('phoneNumber', '+254700000001');
     await submit();
 
-    http.expectOne('/users/me').flush(
+    http.expectOne('/api/user-service/users/me').flush(
       {
         title: 'Phone number already exists',
         detail: 'An account with this phone number already exists',
@@ -130,7 +130,7 @@ describe('Profile', () => {
     await submit();
 
     http
-      .expectOne('/users/me')
+      .expectOne('/api/user-service/users/me')
       .flush(
         { detail: 'Current password is incorrect' },
         { status: 400, statusText: 'Bad Request' },

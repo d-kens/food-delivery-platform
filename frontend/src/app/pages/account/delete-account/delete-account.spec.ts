@@ -72,7 +72,7 @@ describe('DeleteAccount', () => {
     expect(compiled.querySelector('form')).toBeNull();
     await expand();
     expect(compiled.querySelector<HTMLInputElement>('#deletePassword')!.value).toBe('');
-    http.expectNone('/users/me');
+    http.expectNone('/api/user-service/users/me');
   });
 
   it('should require the password and the confirmation box', async () => {
@@ -81,7 +81,7 @@ describe('DeleteAccount', () => {
 
     expect(message('deletePassword').textContent).toContain('Enter your current password');
     expect(message('confirm').textContent).toContain('Tick the box');
-    http.expectNone('/users/me');
+    http.expectNone('/api/user-service/users/me');
   });
 
   it('should delete the account, end the session and go to login with a notice', async () => {
@@ -91,7 +91,7 @@ describe('DeleteAccount', () => {
     await tickConfirm();
     await submit();
 
-    const request = http.expectOne('/users/me');
+    const request = http.expectOne('/api/user-service/users/me');
     expect(request.request.method).toBe('DELETE');
     expect(request.request.body).toEqual({ currentPassword: 'OldPassw0rd!' });
     request.flush(null, { status: 204, statusText: 'No Content' });
@@ -108,7 +108,7 @@ describe('DeleteAccount', () => {
     await submit();
 
     http
-      .expectOne('/users/me')
+      .expectOne('/api/user-service/users/me')
       .flush(
         { detail: 'Current password is incorrect' },
         { status: 400, statusText: 'Bad Request' },
