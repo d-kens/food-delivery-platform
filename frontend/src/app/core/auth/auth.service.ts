@@ -7,8 +7,8 @@ import { LoginRequest, RegisterRequest, SessionUser, UserResponse } from './auth
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
-  private readonly authUrl = `${environment.apiUrl}/auth`;
-  private readonly usersUrl = `${environment.apiUrl}/users`;
+  private readonly authUrl = `${environment.apiUrl}/user-service/auth`;
+  private readonly usersUrl = `${environment.apiUrl}/user-service/users`;
 
   private readonly currentUser = signal<SessionUser | null>(null);
   private refreshInFlight: Observable<SessionUser> | null = null;

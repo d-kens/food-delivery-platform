@@ -51,14 +51,14 @@ describe('ForgotPassword', () => {
     expect(compiled.querySelector('#email-message')?.textContent).toContain(
       'Enter a valid email address',
     );
-    http.expectNone('/auth/forgot-password');
+    http.expectNone('/api/user-service/auth/forgot-password');
   });
 
   it('should send the link and show the same confirmation whether or not the account exists', async () => {
     await type(' jane.doe@gmail.com ');
     await submit();
 
-    const request = http.expectOne('/auth/forgot-password');
+    const request = http.expectOne('/api/user-service/auth/forgot-password');
     expect(request.request.body).toEqual({ email: 'jane.doe@gmail.com' });
     request.flush(null, { status: 202, statusText: 'Accepted' });
     await fixture.whenStable();
@@ -72,11 +72,15 @@ describe('ForgotPassword', () => {
   it('should resend the link and confirm with a toast', async () => {
     await type('jane.doe@gmail.com');
     await submit();
-    http.expectOne('/auth/forgot-password').flush(null, { status: 202, statusText: 'Accepted' });
+    http
+      .expectOne('/api/user-service/auth/forgot-password')
+      .flush(null, { status: 202, statusText: 'Accepted' });
     await fixture.whenStable();
 
     button('Resend link').click();
-    http.expectOne('/auth/forgot-password').flush(null, { status: 202, statusText: 'Accepted' });
+    http
+      .expectOne('/api/user-service/auth/forgot-password')
+      .flush(null, { status: 202, statusText: 'Accepted' });
     await fixture.whenStable();
 
     expect(TestBed.inject(ToastService).toasts()).toEqual([
@@ -90,7 +94,9 @@ describe('ForgotPassword', () => {
   it('should go back to the form to use a different email', async () => {
     await type('jane.doe@gmail.com');
     await submit();
-    http.expectOne('/auth/forgot-password').flush(null, { status: 202, statusText: 'Accepted' });
+    http
+      .expectOne('/api/user-service/auth/forgot-password')
+      .flush(null, { status: 202, statusText: 'Accepted' });
     await fixture.whenStable();
 
     button('Use a different email').click();
@@ -103,7 +109,9 @@ describe('ForgotPassword', () => {
     await type('jane.doe@gmail.com');
     await submit();
 
-    http.expectOne('/auth/forgot-password').error(new ProgressEvent('error'), { status: 0 });
+    http
+      .expectOne('/api/user-service/auth/forgot-password')
+      .error(new ProgressEvent('error'), { status: 0 });
     await fixture.whenStable();
 
     expect(compiled.querySelector('[role="alert"]')?.textContent).toContain(

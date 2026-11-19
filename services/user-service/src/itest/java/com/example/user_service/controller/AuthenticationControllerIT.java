@@ -16,14 +16,12 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
 
@@ -155,7 +153,7 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
 
         assertThat(setCookie)
                 .startsWith("refresh_token=")
-                .contains("Path=/api/auth")
+                .contains("Path=/api/user-service/auth")
                 .contains("Max-Age=604800")
                 .contains("HttpOnly")
                 .contains("Secure")
@@ -203,7 +201,7 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.detail").value("Invalid email or password"))
                 .andExpect(jsonPath("$.accessToken").doesNotExist())
-                .andExpect(header().stringValues(HttpHeaders.SET_COOKIE, contains(startsWith("XSRF-TOKEN="))));
+                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
 
         assertThat(refreshTokenRepository.count()).isZero();
     }
@@ -215,7 +213,7 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
                         .content(loginJson("unknown@gmail.com", PASSWORD)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.detail").value("Invalid email or password"))
-                .andExpect(header().stringValues(HttpHeaders.SET_COOKIE, contains(startsWith("XSRF-TOKEN="))));
+                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
 
         assertThat(refreshTokenRepository.count()).isZero();
     }
@@ -233,7 +231,7 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.title").value("Account Suspended"))
                 .andExpect(jsonPath("$.accessToken").doesNotExist())
-                .andExpect(header().stringValues(HttpHeaders.SET_COOKIE, contains(startsWith("XSRF-TOKEN="))));
+                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
 
         assertThat(refreshTokenRepository.count()).isZero();
     }
@@ -244,7 +242,7 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
         var user = userRepository.findByEmail(EMAIL).orElseThrow();
         String refreshToken = loginAndGetRefreshToken();
 
-        var setCookies = mockMvc.perform(post(REFRESH_TOKEN_URL).with(xsrf())
+        var setCookies = mockMvc.perform(post(REFRESH_TOKEN_URL)
                         .cookie(new Cookie("refresh_token", refreshToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").value(user.getId().toString()))
@@ -270,7 +268,7 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
         registerUser();
         String refreshToken = loginAndGetRefreshToken();
 
-        mockMvc.perform(post(REFRESH_TOKEN_URL).with(xsrf())
+        mockMvc.perform(post(REFRESH_TOKEN_URL)
                         .cookie(new Cookie("refresh_token", refreshToken)))
                 .andExpect(status().isOk())
                 .andExpect(header().stringValues(HttpHeaders.SET_COOKIE, everyItem(not(startsWith("refresh_token=")))));
@@ -285,7 +283,7 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
 
     @Test
     void refreshToken_returnsUnauthorized_whenCookieIsMissing() throws Exception {
-        mockMvc.perform(post(REFRESH_TOKEN_URL).with(xsrf()))
+        mockMvc.perform(post(REFRESH_TOKEN_URL))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.title").value("Invalid Refresh Token"))
                 .andExpect(jsonPath("$.detail").value("Invalid or expired refresh token"))
@@ -297,7 +295,7 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
         registerUser();
         loginAndGetRefreshToken();
 
-        mockMvc.perform(post(REFRESH_TOKEN_URL).with(xsrf())
+        mockMvc.perform(post(REFRESH_TOKEN_URL)
                         .cookie(new Cookie("refresh_token", "unknown-token")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.title").value("Invalid Refresh Token"))
@@ -312,7 +310,7 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
         storedToken.setExpiresAt(Instant.now().minusSeconds(60));
         refreshTokenRepository.save(storedToken);
 
-        mockMvc.perform(post(REFRESH_TOKEN_URL).with(xsrf())
+        mockMvc.perform(post(REFRESH_TOKEN_URL)
                         .cookie(new Cookie("refresh_token", refreshToken)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.title").value("Invalid Refresh Token"))
@@ -327,7 +325,7 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
         storedToken.setRevokedAt(Instant.now());
         refreshTokenRepository.save(storedToken);
 
-        mockMvc.perform(post(REFRESH_TOKEN_URL).with(xsrf())
+        mockMvc.perform(post(REFRESH_TOKEN_URL)
                         .cookie(new Cookie("refresh_token", refreshToken)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.title").value("Invalid Refresh Token"))
@@ -342,7 +340,7 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
         user.setStatus(UserStatus.SUSPENDED);
         userRepository.save(user);
 
-        mockMvc.perform(post(REFRESH_TOKEN_URL).with(xsrf())
+        mockMvc.perform(post(REFRESH_TOKEN_URL)
                         .cookie(new Cookie("refresh_token", refreshToken)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.title").value("Account Suspended"))
@@ -370,11 +368,11 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void me_returnsCurrentUser_whenAccessTokenCookieIsValid() throws Exception {
+    void me_returnsCurrentUser_whenBearerTokenIsValid() throws Exception {
         registerUser();
         var user = userRepository.findByEmail(EMAIL).orElseThrow();
 
-        mockMvc.perform(get(ME_URL).cookie(new Cookie("access_token", loginAndGetAccessToken())))
+        mockMvc.perform(get(ME_URL).header(HttpHeaders.AUTHORIZATION, "Bearer " + loginAndGetAccessToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").value(user.getId().toString()))
                 .andExpect(jsonPath("$.email").value(EMAIL))
@@ -383,12 +381,11 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void me_acceptsAccessTokenInAuthorizationHeader() throws Exception {
+    void me_returnsUnauthorized_withOnlyAccessTokenCookie() throws Exception {
         registerUser();
 
-        mockMvc.perform(get(ME_URL).header(HttpHeaders.AUTHORIZATION, "Bearer " + loginAndGetAccessToken()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email").value(EMAIL));
+        mockMvc.perform(get(ME_URL).cookie(new Cookie("access_token", loginAndGetAccessToken())))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -398,75 +395,17 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void me_returnsUnauthorized_whenAccessTokenCookieIsInvalid() throws Exception {
-        mockMvc.perform(get(ME_URL).cookie(new Cookie("access_token", "not-a-jwt")))
+    void me_returnsUnauthorized_whenBearerTokenIsInvalid() throws Exception {
+        mockMvc.perform(get(ME_URL).header(HttpHeaders.AUTHORIZATION, "Bearer not-a-jwt"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void publicEndpoints_ignoreAnInvalidAccessTokenCookie() throws Exception {
-        registerUser();
-
-        mockMvc.perform(post(LOGIN_URL).with(xsrf())
-                        .cookie(new Cookie("access_token", "expired-or-garbage"))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(loginJson(EMAIL, PASSWORD)))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    void everyResponse_setsReadableXsrfCookie() throws Exception {
-        var setCookies = mockMvc.perform(get(ME_URL))
-                .andExpect(status().isUnauthorized())
-                .andReturn()
-                .getResponse()
-                .getHeaders(HttpHeaders.SET_COOKIE);
-
-        assertThat(cookieHeader(setCookies, "XSRF-TOKEN"))
-                .contains("Path=/")
-                .doesNotContain("HttpOnly");
-    }
-
-    @Test
-    void cookieAuthenticatedPost_isRejected_withoutCsrfToken() throws Exception {
-        registerUser();
-        String refreshToken = loginAndGetRefreshToken();
-
-        mockMvc.perform(post(REFRESH_TOKEN_URL).cookie(new Cookie("refresh_token", refreshToken)))
-                .andExpect(status().isForbidden())
-                .andExpect(header().stringValues(HttpHeaders.SET_COOKIE, everyItem(not(startsWith("access_token=")))));
-    }
-
-    @Test
-    void cookieAuthenticatedPost_isAccepted_withMatchingXsrfCookieAndHeader() throws Exception {
-        registerUser();
-        String refreshToken = loginAndGetRefreshToken();
-        String xsrfToken = cookieValue(cookieHeader(
-                mockMvc.perform(get(ME_URL)).andReturn().getResponse().getHeaders(HttpHeaders.SET_COOKIE),
-                "XSRF-TOKEN"));
-
-        mockMvc.perform(post(REFRESH_TOKEN_URL)
-                        .cookie(new Cookie("refresh_token", refreshToken), new Cookie("XSRF-TOKEN", xsrfToken))
-                        .header("X-XSRF-TOKEN", xsrfToken))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    void cookieAuthenticatedPost_isRejected_whenXsrfHeaderDoesNotMatchCookie() throws Exception {
-        registerUser();
-        String refreshToken = loginAndGetRefreshToken();
-
-        mockMvc.perform(post(REFRESH_TOKEN_URL)
-                        .cookie(new Cookie("refresh_token", refreshToken), new Cookie("XSRF-TOKEN", "real-token"))
-                        .header("X-XSRF-TOKEN", "forged-token"))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void postsWithoutAuthCookies_doNotNeedCsrfToken() throws Exception {
+    void publicEndpoints_ignoreAnInvalidBearerToken() throws Exception {
         registerUser();
 
         mockMvc.perform(post(LOGIN_URL)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer expired-or-garbage")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson(EMAIL, PASSWORD)))
                 .andExpect(status().isOk());
@@ -477,7 +416,7 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
         registerUser();
         String refreshToken = loginAndGetRefreshToken();
 
-        var setCookies = mockMvc.perform(post(LOGOUT_URL).with(xsrf())
+        var setCookies = mockMvc.perform(post(LOGOUT_URL)
                         .cookie(new Cookie("refresh_token", refreshToken)))
                 .andExpect(status().isNoContent())
                 .andReturn()
@@ -490,37 +429,25 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
                 .singleElement()
                 .satisfies(token -> assertThat(token.getRevokedAt()).isNotNull());
 
-        mockMvc.perform(post(REFRESH_TOKEN_URL).with(xsrf())
+        mockMvc.perform(post(REFRESH_TOKEN_URL)
                         .cookie(new Cookie("refresh_token", refreshToken)))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void logout_isRejected_withoutCsrfToken() throws Exception {
+    void logout_works_whenBearerTokenHasExpired() throws Exception {
         registerUser();
         String refreshToken = loginAndGetRefreshToken();
 
-        mockMvc.perform(post(LOGOUT_URL).cookie(new Cookie("refresh_token", refreshToken)))
-                .andExpect(status().isForbidden());
-
-        assertThat(refreshTokenRepository.findAll())
-                .singleElement()
-                .satisfies(token -> assertThat(token.getRevokedAt()).isNull());
-    }
-
-    @Test
-    void logout_works_whenAccessTokenCookieHasExpired() throws Exception {
-        registerUser();
-        String refreshToken = loginAndGetRefreshToken();
-
-        mockMvc.perform(post(LOGOUT_URL).with(xsrf())
-                        .cookie(new Cookie("access_token", "expired"), new Cookie("refresh_token", refreshToken)))
+        mockMvc.perform(post(LOGOUT_URL)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer expired")
+                        .cookie(new Cookie("refresh_token", refreshToken)))
                 .andExpect(status().isNoContent());
     }
 
     @Test
     void refreshToken_clearsBothCookies_whenRefreshTokenIsInvalid() throws Exception {
-        var setCookies = mockMvc.perform(post(REFRESH_TOKEN_URL).with(xsrf())
+        var setCookies = mockMvc.perform(post(REFRESH_TOKEN_URL)
                         .cookie(new Cookie("refresh_token", "unknown-token")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.title").value("Invalid Refresh Token"))
@@ -556,18 +483,6 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
 
     private String refreshTokenFrom(String setCookie) {
         return cookieValue(setCookie);
-    }
-
-    private RequestPostProcessor xsrf() {
-        return request -> {
-            var xsrfCookie = new Cookie("XSRF-TOKEN", "test-xsrf-token");
-            var existing = request.getCookies() == null ? new Cookie[0] : request.getCookies();
-            var cookies = Arrays.copyOf(existing, existing.length + 1);
-            cookies[existing.length] = xsrfCookie;
-            request.setCookies(cookies);
-            request.addHeader("X-XSRF-TOKEN", xsrfCookie.getValue());
-            return request;
-        };
     }
 
     private String cookieHeader(List<String> setCookies, String name) {
