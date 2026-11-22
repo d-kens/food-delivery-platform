@@ -136,6 +136,7 @@ class UserServiceTest {
 
         assertThat(user.getStatus()).isEqualTo(UserStatus.SUSPENDED);
         verify(refreshTokenService).revokeAllFor(USER_ID);
+        verifyStatusChangedEvent(UserStatus.SUSPENDED);
     }
 
     @Test
@@ -147,6 +148,18 @@ class UserServiceTest {
 
         assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
         verify(refreshTokenService, never()).revokeAllFor(any());
+        verifyStatusChangedEvent(UserStatus.ACTIVE);
+    }
+
+    @Test
+    void updateUserStatus_doesNothing_whenStatusIsUnchanged() {
+        var user = user(UserStatus.SUSPENDED);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+
+        userService.updateUserStatus(ADMIN_ID, USER_ID, UserStatus.SUSPENDED);
+
+        verify(refreshTokenService, never()).revokeAllFor(any());
+        verify(outboxService, never()).saveUserEvent(any());
     }
 
     @Test
@@ -427,6 +440,7 @@ class UserServiceTest {
                 .isInstanceOf(UserDeletedException.class);
 
         assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
+        verify(outboxService, never()).saveUserEvent(any());
     }
 
     @Test
@@ -516,5 +530,14 @@ class UserServiceTest {
                 .passwordHash("hashed")
                 .status(status)
                 .build();
+    }
+
+    private void verifyStatusChangedEvent(UserStatus status) {
+        var captor = ArgumentCaptor.forClass(UserEvent.class);
+        verify(outboxService).saveUserEvent(captor.capture());
+        var event = captor.getValue();
+        assertThat(event.eventType()).isEqualTo(UserEvent.USER_STATUS_CHANGED);
+        assertThat(event.userId()).isEqualTo(USER_ID);
+        assertThat(event.status()).isEqualTo(status);
     }
 }

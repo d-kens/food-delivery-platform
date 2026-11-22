@@ -1,5 +1,6 @@
 package com.example.user_service.outbox;
 
+import com.example.user_service.common.UserStatus;
 import com.example.user_service.config.KafkaTopicsProperties;
 import com.example.user_service.entity.OutboxMessage;
 import com.example.user_service.entity.User;
@@ -67,6 +68,20 @@ class OutboxServiceTest {
         JsonNode json = jsonMapper.readTree(savedMessage().getPayload());
         assertThat(json.propertyNames()).containsExactlyInAnyOrder("eventId", "eventType", "occurredAt", "userId");
         assertThat(json.get("eventType").asString()).isEqualTo("UserDeleted");
+    }
+
+    @Test
+    void saveUserEvent_sendsOnlyTheStatusForUserStatusChanged() {
+        outboxService.saveUserEvent(UserEvent.statusChanged(USER_ID, UserStatus.SUSPENDED));
+
+        var message = savedMessage();
+        assertThat(message.getTopic()).isEqualTo("user-events");
+        assertThat(message.getMessageKey()).isEqualTo(USER_ID.toString());
+        JsonNode json = jsonMapper.readTree(message.getPayload());
+        assertThat(json.propertyNames())
+                .containsExactlyInAnyOrder("eventId", "eventType", "occurredAt", "userId", "status");
+        assertThat(json.get("eventType").asString()).isEqualTo("UserStatusChanged");
+        assertThat(json.get("status").asString()).isEqualTo("SUSPENDED");
     }
 
     @Test

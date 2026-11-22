@@ -1,7 +1,9 @@
 package com.example.user_service.exception;
 
-public class OwnRoleChangeException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class OwnRoleChangeException extends ApiException {
     public OwnRoleChangeException() {
-        super("You cannot change your own roles");
+        super(HttpStatus.CONFLICT, "Cannot change own roles", "You cannot change your own roles");
     }
 }

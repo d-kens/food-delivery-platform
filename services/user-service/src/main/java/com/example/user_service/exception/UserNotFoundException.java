@@ -1,7 +1,9 @@
 package com.example.user_service.exception;
 
-public class UserNotFoundException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class UserNotFoundException extends ApiException {
     public UserNotFoundException() {
-        super("User not found");
+        super(HttpStatus.NOT_FOUND, "User Not Found", "User not found");
     }
 }

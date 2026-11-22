@@ -1,7 +1,9 @@
 package com.example.user_service.exception;
 
-public class UserSuspendedException extends RuntimeException {
-    public UserSuspendedException(String message) {
-        super(message);
+import org.springframework.http.HttpStatus;
+
+public class UserSuspendedException extends ApiException {
+    public UserSuspendedException() {
+        super(HttpStatus.FORBIDDEN, "Account Suspended", "Your account has been suspended");
     }
 }

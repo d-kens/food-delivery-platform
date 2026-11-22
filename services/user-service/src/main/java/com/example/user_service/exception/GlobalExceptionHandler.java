@@ -1,6 +1,8 @@
 package com.example.user_service.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -21,90 +23,6 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
-    @ExceptionHandler(AccountNotFoundException.class)
-    public ProblemDetail handleAccountNotFoundException(AccountNotFoundException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
-        problem.setTitle("Account Not Found");
-        return problem;
-    }
-
-    @ExceptionHandler(UserNotFoundException.class)
-    public ProblemDetail handleUserNotFoundException(UserNotFoundException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
-        problem.setTitle("User Not Found");
-        return problem;
-    }
-
-    @ExceptionHandler(InvalidCredentialException.class)
-    public ProblemDetail handleInvalidCredentialException(InvalidCredentialException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
-        problem.setTitle("Invalid Credentials");
-        return problem;
-    }
-
-    @ExceptionHandler(UserSuspendedException.class)
-    public ProblemDetail handleUserSuspendedException(UserSuspendedException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
-        problem.setTitle("Account Suspended");
-        return problem;
-    }
-
-    @ExceptionHandler(EmailAlreadyExistsException.class)
-    public ProblemDetail handleEmailAlreadyExists(EmailAlreadyExistsException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
-        problem.setTitle("Email already exists");
-        return problem;
-    }
-
-    @ExceptionHandler(PhoneNumberAlreadyExistsException.class)
-    public ProblemDetail handlePhoneNumberAlreadyExists(PhoneNumberAlreadyExistsException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
-        problem.setTitle("Phone number already exists");
-        return problem;
-    }
-
-    @ExceptionHandler(OwnStatusChangeException.class)
-    public ProblemDetail handleOwnStatusChange(OwnStatusChangeException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
-        problem.setTitle("Cannot change own status");
-        return problem;
-    }
-
-    @ExceptionHandler(OwnRoleChangeException.class)
-    public ProblemDetail handleOwnRoleChange(OwnRoleChangeException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
-        problem.setTitle("Cannot change own roles");
-        return problem;
-    }
-
-    @ExceptionHandler(UserDeletedException.class)
-    public ProblemDetail handleUserDeleted(UserDeletedException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
-        problem.setTitle("Account deleted");
-        return problem;
-    }
-
-    @ExceptionHandler(InvalidStatusChangeException.class)
-    public ProblemDetail handleInvalidStatusChange(InvalidStatusChangeException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
-        problem.setTitle("Invalid status change");
-        return problem;
-    }
-
-    @ExceptionHandler(InvalidPasswordResetTokenException.class)
-    public ProblemDetail handleInvalidPasswordResetToken(InvalidPasswordResetTokenException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
-        problem.setTitle("Invalid reset link");
-        return problem;
-    }
-
-    @ExceptionHandler(InvalidCurrentPasswordException.class)
-    public ProblemDetail handleInvalidCurrentPassword(InvalidCurrentPasswordException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
-        problem.setTitle("Invalid current password");
-        return problem;
-    }
-
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
@@ -122,6 +40,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return handleExceptionInternal(ex, problem, headers, status, request);
     }
 
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        return switch (constraintName(ex)) {
+            case "uk_users_email" -> new EmailAlreadyExistsException().getBody();
+            case "uk_users_phone_number" -> new PhoneNumberAlreadyExistsException().getBody();
+            default -> handleUnexpected(ex);
+        };
+    }
+
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleUnexpected(Exception ex) {
         log.error("Unhandled exception", ex);
@@ -129,5 +56,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred");
         problem.setTitle("Internal server error");
         return problem;
+    }
+
+    private static String constraintName(Throwable ex) {
+        for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
+            if (cause instanceof ConstraintViolationException violation && violation.getConstraintName() != null) {
+                return violation.getConstraintName();
+            }
+        }
+        return "";
     }
 }

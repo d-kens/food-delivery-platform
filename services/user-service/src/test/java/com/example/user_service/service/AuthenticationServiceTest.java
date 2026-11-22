@@ -70,7 +70,7 @@ class AuthenticationServiceTest {
         var response = authenticationService.register(request);
 
         assertThat(response).isSameAs(expectedResponse);
-        verify(userRepository).saveAndFlush(user);
+        verify(userRepository).save(user);
     }
 
     @Test
@@ -105,16 +105,6 @@ class AuthenticationServiceTest {
     }
 
     @Test
-    void register_whenEmailExists_savesNoEvent() {
-        var request = createRegistrationRequest();
-        when(userRepository.existsByEmail(request.email())).thenReturn(true);
-
-        assertThrows(EmailAlreadyExistsException.class, () -> authenticationService.register(request));
-
-        verifyNoInteractions(outboxService);
-    }
-
-    @Test
     void register_setsEncodedPasswordAndRoleOnSavedUser() {
         var request = createRegistrationRequest();
 
@@ -133,9 +123,8 @@ class AuthenticationServiceTest {
         verify(passwordEncoder).encode(request.password());
     }
 
-
     @Test
-    void register_whenEmailExists_throwsEmailAlreadyExistsException() {
+    void register_whenEmailExists_throwsAndSavesNothing() {
         var request = createRegistrationRequest();
 
         when(userRepository.existsByEmail(request.email())).thenReturn(true);
@@ -145,7 +134,8 @@ class AuthenticationServiceTest {
         });
 
         assertEquals("An account with this email already exists", exception.getMessage());
-        verify(userRepository, never()).saveAndFlush(any());
+        verify(userRepository, never()).save(any());
+        verifyNoInteractions(outboxService);
     }
 
     @Test

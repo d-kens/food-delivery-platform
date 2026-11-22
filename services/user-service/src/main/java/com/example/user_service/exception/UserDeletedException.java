@@ -1,7 +1,9 @@
 package com.example.user_service.exception;
 
-public class UserDeletedException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class UserDeletedException extends ApiException {
     public UserDeletedException() {
-        super("This account has been deleted and cannot be changed");
+        super(HttpStatus.CONFLICT, "Account deleted", "This account has been deleted and cannot be changed");
     }
 }

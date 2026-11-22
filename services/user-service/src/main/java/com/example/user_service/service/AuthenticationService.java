@@ -39,7 +39,7 @@ public class AuthenticationService {
         String email = Emails.normalize(request.email());
 
         if (userRepository.existsByEmail(email)) {
-            throw new EmailAlreadyExistsException("An account with this email already exists");
+            throw new EmailAlreadyExistsException();
         }
 
         User user = userMapper.toUserEntity(request);
@@ -47,7 +47,7 @@ public class AuthenticationService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRoles(EnumSet.of(Role.USER));
 
-        userRepository.saveAndFlush(user);
+        userRepository.save(user);
         outboxService.saveUserEvent(UserEvent.created(user));
 
         return userMapper.toUserResponse(user);
@@ -56,14 +56,14 @@ public class AuthenticationService {
 
     public LoginResult login(final AuthRequestDto request) {
         User user = userRepository.findByEmail(Emails.normalize(request.email()))
-                .orElseThrow(() -> new InvalidCredentialException("Invalid email or password"));
+                .orElseThrow(InvalidCredentialException::new);
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            throw new InvalidCredentialException("Invalid email or password");
+            throw new InvalidCredentialException();
         }
 
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new UserSuspendedException("Your account has been suspended");
+            throw new UserSuspendedException();
         }
 
         String accessToken = jwtService.generateToken(user);
@@ -82,7 +82,7 @@ public class AuthenticationService {
         var user = storedToken.getUser();
 
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new UserSuspendedException("Your account has been suspended");
+            throw new UserSuspendedException();
         }
 
         String accessToken = jwtService.generateToken(user);
