@@ -80,7 +80,7 @@ describe('Password', () => {
   it('should reject a short new password', async () => {
     await type('newPassword', 'short');
 
-    expect(message('newPassword').textContent).toContain('Use between 8 and 100 characters');
+    expect(message('newPassword').textContent).toContain('Use between 8 and 72 characters');
   });
 
   it('should not submit when the passwords do not match', async () => {

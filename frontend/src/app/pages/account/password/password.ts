@@ -124,7 +124,7 @@ export class Password {
         confirmPassword: 'Enter the new password again',
       }[field];
     }
-    return 'Use between 8 and 100 characters';
+    return `Use between ${PASSWORD_MIN_LENGTH} and ${PASSWORD_MAX_LENGTH} characters`;
   }
 
   protected onSubmit(): void {
