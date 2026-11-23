@@ -1,7 +1,9 @@
 package com.example.user_service.exception;
 
-public class EmailAlreadyExistsException extends RuntimeException {
-    public EmailAlreadyExistsException(String message) {
-        super(message);
+import org.springframework.http.HttpStatus;
+
+public class EmailAlreadyExistsException extends ApiException {
+    public EmailAlreadyExistsException() {
+        super(HttpStatus.CONFLICT, "Email already exists", "An account with this email already exists");
     }
 }

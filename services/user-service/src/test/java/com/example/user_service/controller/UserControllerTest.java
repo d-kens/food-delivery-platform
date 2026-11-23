@@ -7,8 +7,7 @@ import com.example.user_service.dto.ChangePasswordRequestDto;
 import com.example.user_service.dto.DeleteAccountRequestDto;
 import com.example.user_service.dto.UpdateUserRequestDto;
 import com.example.user_service.dto.UserResponseDto;
-import com.example.user_service.security.AccessTokenCookieService;
-import com.example.user_service.security.RefreshTokenCookieService;
+import com.example.user_service.security.AuthCookieService;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.InvalidCurrentPasswordException;
 import com.example.user_service.exception.InvalidStatusChangeException;
@@ -26,7 +25,6 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -76,17 +74,12 @@ class UserControllerTest {
     private JwtDecoder jwtDecoder;
 
     @MockitoBean
-    private AccessTokenCookieService accessTokenCookieService;
-
-    @MockitoBean
-    private RefreshTokenCookieService refreshTokenCookieService;
+    private AuthCookieService authCookieService;
 
     @BeforeEach
     void stubClearedCookies() {
-        when(accessTokenCookieService.clearAccessTokenCookie()).thenReturn(
-                ResponseCookie.from(AccessTokenCookieService.COOKIE_NAME, "").path("/").maxAge(0).build());
-        when(refreshTokenCookieService.clearRefreshTokenCookie()).thenReturn(
-                ResponseCookie.from(RefreshTokenCookieService.COOKIE_NAME, "").path("/auth").maxAge(0).build());
+        when(authCookieService.clearedCookies()).thenReturn(new String[] {
+                "access_token=; Path=/; Max-Age=0", "refresh_token=; Path=/auth; Max-Age=0"});
     }
 
     @Test
@@ -311,7 +304,7 @@ class UserControllerTest {
     @Test
     void updateMe_returnsConflict_whenEmailTaken() throws Exception {
         when(userService.updateCurrentUser(any(), any()))
-                .thenThrow(new EmailAlreadyExistsException("An account with this email already exists"));
+                .thenThrow(new EmailAlreadyExistsException());
 
         mockMvc.perform(patch(USERS_URL + "/me")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -323,7 +316,7 @@ class UserControllerTest {
     @Test
     void updateMe_returnsConflict_whenPhoneNumberTaken() throws Exception {
         when(userService.updateCurrentUser(any(), any()))
-                .thenThrow(new PhoneNumberAlreadyExistsException("An account with this phone number already exists"));
+                .thenThrow(new PhoneNumberAlreadyExistsException());
 
         mockMvc.perform(patch(USERS_URL + "/me")
                         .contentType(MediaType.APPLICATION_JSON)

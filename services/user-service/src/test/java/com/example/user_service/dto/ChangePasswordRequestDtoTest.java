@@ -58,14 +58,14 @@ class ChangePasswordRequestDtoTest {
     }
 
     @Test
-    void newPassword_mustNotExceedHundredCharacters() {
-        var request = new ChangePasswordRequestDto("OldPassw0rd!", "a".repeat(101));
+    void newPassword_mustNotExceed72Bytes() {
+        var request = new ChangePasswordRequestDto("OldPassw0rd!", "a".repeat(73));
 
         assertThat(invalidFields(validator.validate(request))).containsOnly("newPassword");
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {8, 100})
+    @ValueSource(ints = {8, 72})
     void newPassword_atLengthLimits_isValid(int length) {
         var request = new ChangePasswordRequestDto("OldPassw0rd!", "a".repeat(length));
 

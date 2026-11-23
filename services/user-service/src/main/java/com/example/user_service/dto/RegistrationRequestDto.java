@@ -1,6 +1,7 @@
 package com.example.user_service.dto;
 
 import jakarta.validation.constraints.Email;
+import com.example.user_service.dto.validation.PasswordLength;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -11,7 +12,7 @@ public record RegistrationRequestDto(
         String email,
 
         @NotBlank(message = "Password is required")
-        @Size(min = 8, max = 100, message = "Password must be between 8 and 100 characters")
+        @PasswordLength
         String password,
 
         @NotBlank(message = "First name is required")

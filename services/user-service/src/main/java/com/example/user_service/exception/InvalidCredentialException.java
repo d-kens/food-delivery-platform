@@ -1,7 +1,9 @@
 package com.example.user_service.exception;
 
-public class InvalidCredentialException extends RuntimeException {
-    public InvalidCredentialException(String message) {
-        super(message);
+import org.springframework.http.HttpStatus;
+
+public class InvalidCredentialException extends ApiException {
+    public InvalidCredentialException() {
+        super(HttpStatus.UNAUTHORIZED, "Invalid Credentials", "Invalid email or password");
     }
 }

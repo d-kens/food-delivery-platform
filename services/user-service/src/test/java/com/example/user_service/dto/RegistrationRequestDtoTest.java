@@ -58,8 +58,8 @@ class RegistrationRequestDtoTest {
     }
 
     @Test
-    void password_mustNotExceedHundredCharacters() {
-        var request = new RegistrationRequestDto("jane.doe@gmail.com", "a".repeat(101), "Jane", "Doe");
+    void password_mustNotExceed72Bytes() {
+        var request = new RegistrationRequestDto("jane.doe@gmail.com", "a".repeat(73), "Jane", "Doe");
 
         assertThat(invalidFields(validator.validate(request))).containsOnly("password");
     }
@@ -86,7 +86,7 @@ class RegistrationRequestDtoTest {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {8, 100})
+    @ValueSource(ints = {8, 72})
     void password_atLengthLimits_isValid(int length) {
         var request = new RegistrationRequestDto("jane.doe@gmail.com", "a".repeat(length), "Jane", "Doe");
 

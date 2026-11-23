@@ -67,7 +67,7 @@ public class UserService {
 
         if (request.phoneNumber() != null && !request.phoneNumber().equals(user.getPhoneNumber())) {
             if (userRepository.existsByPhoneNumber(request.phoneNumber())) {
-                throw new PhoneNumberAlreadyExistsException("An account with this phone number already exists");
+                throw new PhoneNumberAlreadyExistsException();
             }
             user.setPhoneNumber(request.phoneNumber());
             changed = true;
@@ -131,11 +131,17 @@ public class UserService {
 
         var user = findNotDeletedUser(userId);
 
+        if (user.getStatus() == status) {
+            return;
+        }
+
         user.setStatus(status);
 
         if (status != UserStatus.ACTIVE) {
             refreshTokenService.revokeAllFor(userId);
         }
+
+        outboxService.saveUserEvent(UserEvent.statusChanged(userId, status));
     }
 
     @Transactional
@@ -190,7 +196,7 @@ public class UserService {
                 .orElseThrow(AccountNotFoundException::new);
 
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new UserSuspendedException("Your account has been suspended");
+            throw new UserSuspendedException();
         }
 
         return user;
@@ -206,7 +212,7 @@ public class UserService {
         }
 
         if (userRepository.existsByEmail(newEmail)) {
-            throw new EmailAlreadyExistsException("An account with this email already exists");
+            throw new EmailAlreadyExistsException();
         }
 
         user.setEmail(newEmail);

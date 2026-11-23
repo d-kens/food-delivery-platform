@@ -4,8 +4,7 @@ import com.example.user_service.dto.AuthRequestDto;
 import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.exception.InvalidRefreshTokenException;
 import com.example.user_service.dto.RegistrationRequestDto;
-import com.example.user_service.security.AccessTokenCookieService;
-import com.example.user_service.security.RefreshTokenCookieService;
+import com.example.user_service.security.AuthCookieService;
 import com.example.user_service.service.AuthenticationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,8 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthenticationController {
 
     private final AuthenticationService authenticationService;
-    private final AccessTokenCookieService accessTokenCookieService;
-    private final RefreshTokenCookieService refreshTokenCookieService;
+    private final AuthCookieService authCookieService;
 
     @PostMapping("register")
     @ResponseStatus(HttpStatus.CREATED)
@@ -46,48 +44,38 @@ public class AuthenticationController {
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE,
-                        accessTokenCookieService.createAccessTokenCookie(loginResult.accessToken()).toString(),
-                        refreshTokenCookieService.createRefreshTokenCookie(loginResult.refreshToken()).toString())
+                        authCookieService.accessTokenCookie(loginResult.accessToken()).toString(),
+                        authCookieService.refreshTokenCookie(loginResult.refreshToken()).toString())
                 .body(loginResult.user());
     }
 
     @PostMapping("refresh-token")
     public ResponseEntity<UserResponseDto> refreshToken(
-            @CookieValue(name = RefreshTokenCookieService.COOKIE_NAME, required = false) final String refreshToken
+            @CookieValue(name = AuthCookieService.REFRESH_TOKEN_COOKIE, required = false) final String refreshToken
     ) {
         var refreshResult = authenticationService.refreshToken(refreshToken);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE,
-                        accessTokenCookieService.createAccessTokenCookie(refreshResult.accessToken()).toString())
+                        authCookieService.accessTokenCookie(refreshResult.accessToken()).toString())
                 .body(refreshResult.user());
     }
 
     @PostMapping("logout")
     public ResponseEntity<Void> logout(
-            @CookieValue(name = RefreshTokenCookieService.COOKIE_NAME, required = false) final String refreshToken
+            @CookieValue(name = AuthCookieService.REFRESH_TOKEN_COOKIE, required = false) final String refreshToken
     ) {
         authenticationService.logout(refreshToken);
 
         return ResponseEntity.noContent()
-                .header(HttpHeaders.SET_COOKIE, clearedAuthCookies())
+                .header(HttpHeaders.SET_COOKIE, authCookieService.clearedCookies())
                 .build();
     }
 
     @ExceptionHandler(InvalidRefreshTokenException.class)
     public ResponseEntity<ProblemDetail> handleInvalidRefreshToken(final InvalidRefreshTokenException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
-        problem.setTitle("Invalid Refresh Token");
-
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .header(HttpHeaders.SET_COOKIE, clearedAuthCookies())
-                .body(problem);
-    }
-
-    private String[] clearedAuthCookies() {
-        return new String[] {
-                accessTokenCookieService.clearAccessTokenCookie().toString(),
-                refreshTokenCookieService.clearRefreshTokenCookie().toString()
-        };
+        return ResponseEntity.status(ex.getStatusCode())
+                .header(HttpHeaders.SET_COOKIE, authCookieService.clearedCookies())
+                .body(ex.getBody());
     }
 }

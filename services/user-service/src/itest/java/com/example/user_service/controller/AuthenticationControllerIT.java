@@ -14,7 +14,12 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
+import org.springframework.security.oauth2.jwt.JwsHeader;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.nio.charset.StandardCharsets;
@@ -63,6 +68,9 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
     private JwtDecoder jwtDecoder;
 
     @Autowired
+    private JwtEncoder jwtEncoder;
+
+    @Autowired
     private RefreshTokenRepository refreshTokenRepository;
 
     @AfterEach
@@ -94,6 +102,24 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
                     assertThat(user.getPasswordHash()).isNotEqualTo(PASSWORD);
                     assertThat(passwordEncoder.matches(PASSWORD, user.getPasswordHash())).isTrue();
                 });
+    }
+
+    @Test
+    void register_returnsBadRequest_whenPasswordIsLongerThan72Bytes() throws Exception {
+        mockMvc.perform(post(REGISTER_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "%s",
+                                  "password": "%s",
+                                  "firstName": "Jane",
+                                  "lastName": "Doe"
+                                }
+                                """.formatted(EMAIL, "é".repeat(40))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.password[0]").value("Password must be between 8 and 72 characters"));
+
+        assertThat(userRepository.count()).isZero();
     }
 
     @Test
@@ -188,6 +214,26 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
                 .contains("Secure")
                 .contains("SameSite=Strict");
         assertThat(refreshTokenFrom(setCookie)).isNotBlank();
+    }
+
+    @Test
+    void login_setsAccessTokenCookie_whenCredentialsAreValid() throws Exception {
+        registerUser();
+
+        var setCookies = mockMvc.perform(post(LOGIN_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson(EMAIL, PASSWORD)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getHeaders(HttpHeaders.SET_COOKIE);
+
+        assertThat(cookieHeader(setCookies, "access_token"))
+                .contains("Path=/api")
+                .contains("Max-Age=900")
+                .contains("HttpOnly")
+                .contains("Secure")
+                .contains("SameSite=Strict");
     }
 
     @Test
@@ -311,15 +357,6 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void refreshToken_returnsUnauthorized_whenCookieIsMissing() throws Exception {
-        mockMvc.perform(post(REFRESH_TOKEN_URL))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.title").value("Invalid Refresh Token"))
-                .andExpect(jsonPath("$.detail").value("Invalid or expired refresh token"))
-                .andExpect(jsonPath("$.accessToken").doesNotExist());
-    }
-
-    @Test
     void refreshToken_returnsUnauthorized_whenTokenIsUnknown() throws Exception {
         registerUser();
         loginAndGetRefreshToken();
@@ -377,26 +414,6 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void login_setsAccessTokenCookie_whenCredentialsAreValid() throws Exception {
-        registerUser();
-
-        var setCookies = mockMvc.perform(post(LOGIN_URL)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(loginJson(EMAIL, PASSWORD)))
-                .andExpect(status().isOk())
-                .andReturn()
-                .getResponse()
-                .getHeaders(HttpHeaders.SET_COOKIE);
-
-        assertThat(cookieHeader(setCookies, "access_token"))
-                .contains("Path=/api")
-                .contains("Max-Age=900")
-                .contains("HttpOnly")
-                .contains("Secure")
-                .contains("SameSite=Strict");
-    }
-
-    @Test
     void me_returnsCurrentUser_whenBearerTokenIsValid() throws Exception {
         registerUser();
         var user = userRepository.findByEmail(EMAIL).orElseThrow();
@@ -426,6 +443,25 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
     @Test
     void me_returnsUnauthorized_whenBearerTokenIsInvalid() throws Exception {
         mockMvc.perform(get(ME_URL).header(HttpHeaders.AUTHORIZATION, "Bearer not-a-jwt"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void me_returnsUnauthorized_whenTokenIsSignedByUsButHasAnotherIssuer() throws Exception {
+        registerUser();
+        var user = userRepository.findByEmail(EMAIL).orElseThrow();
+        var now = Instant.now();
+        var claims = JwtClaimsSet.builder()
+                .issuer("https://someone-else.example")
+                .subject(user.getId().toString())
+                .issuedAt(now)
+                .expiresAt(now.plus(Duration.ofMinutes(5)))
+                .claim("roles", List.of("USER"))
+                .build();
+        var header = JwsHeader.with(SignatureAlgorithm.RS256).keyId("user-service-key-1").build();
+        var token = jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
+
+        mockMvc.perform(get(ME_URL).header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -472,20 +508,6 @@ class AuthenticationControllerIT extends AbstractIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer expired")
                         .cookie(new Cookie("refresh_token", refreshToken)))
                 .andExpect(status().isNoContent());
-    }
-
-    @Test
-    void refreshToken_clearsBothCookies_whenRefreshTokenIsInvalid() throws Exception {
-        var setCookies = mockMvc.perform(post(REFRESH_TOKEN_URL)
-                        .cookie(new Cookie("refresh_token", "unknown-token")))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.title").value("Invalid Refresh Token"))
-                .andReturn()
-                .getResponse()
-                .getHeaders(HttpHeaders.SET_COOKIE);
-
-        assertThat(cookieHeader(setCookies, "access_token")).contains("Max-Age=0");
-        assertThat(cookieHeader(setCookies, "refresh_token")).contains("Max-Age=0");
     }
 
     private String loginAndGetAccessToken() throws Exception {

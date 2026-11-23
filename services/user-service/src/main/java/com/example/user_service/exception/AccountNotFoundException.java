@@ -1,7 +1,9 @@
 package com.example.user_service.exception;
 
-public class AccountNotFoundException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class AccountNotFoundException extends ApiException {
     public AccountNotFoundException() {
-        super("This account no longer exists");
+        super(HttpStatus.UNAUTHORIZED, "Account Not Found", "This account no longer exists");
     }
 }

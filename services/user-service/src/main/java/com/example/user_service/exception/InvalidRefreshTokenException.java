@@ -1,7 +1,9 @@
 package com.example.user_service.exception;
 
-public class InvalidRefreshTokenException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class InvalidRefreshTokenException extends ApiException {
     public InvalidRefreshTokenException() {
-        super("Invalid or expired refresh token");
+        super(HttpStatus.UNAUTHORIZED, "Invalid Refresh Token", "Invalid or expired refresh token");
     }
 }

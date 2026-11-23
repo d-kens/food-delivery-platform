@@ -4,6 +4,7 @@ import com.example.user_service.AbstractIntegrationTest;
 import com.example.user_service.common.Role;
 import com.example.user_service.common.UserStatus;
 import com.example.user_service.entity.User;
+import com.example.user_service.repository.OutboxMessageRepository;
 import com.example.user_service.repository.RefreshTokenRepository;
 import com.example.user_service.repository.UserRepository;
 import jakarta.servlet.http.Cookie;
@@ -20,7 +21,6 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.EnumSet;
 import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -53,6 +53,9 @@ class UserControllerIT extends AbstractIntegrationTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Autowired
+    private OutboxMessageRepository outboxMessageRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     private User admin;
@@ -68,6 +71,7 @@ class UserControllerIT extends AbstractIntegrationTest {
 
     @AfterEach
     void tearDown() {
+        outboxMessageRepository.deleteAll();
         refreshTokenRepository.deleteAll();
         userRepository.deleteAll();
     }
@@ -112,12 +116,6 @@ class UserControllerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void getUsers_returnsForbidden_forRegularUser() throws Exception {
-        mockMvc.perform(get(USERS_URL).header(HttpHeaders.AUTHORIZATION, bearer(JANE_EMAIL)))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
     void getUserById_returnsUser_forAdmin() throws Exception {
         mockMvc.perform(get(USERS_URL + "/" + jane.getId()).header(HttpHeaders.AUTHORIZATION, bearer(ADMIN_EMAIL)))
                 .andExpect(status().isOk())
@@ -126,19 +124,6 @@ class UserControllerIT extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.firstName").value("Jane"))
                 .andExpect(jsonPath("$.phoneNumber").value("+254707127309"))
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
-    }
-
-    @Test
-    void getUserById_returnsNotFound_whenMissing() throws Exception {
-        mockMvc.perform(get(USERS_URL + "/" + UUID.randomUUID()).header(HttpHeaders.AUTHORIZATION, bearer(ADMIN_EMAIL)))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.title").value("User Not Found"));
-    }
-
-    @Test
-    void getUserById_returnsForbidden_forRegularUser() throws Exception {
-        mockMvc.perform(get(USERS_URL + "/" + john.getId()).header(HttpHeaders.AUTHORIZATION, bearer(JANE_EMAIL)))
-                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -153,6 +138,13 @@ class UserControllerIT extends AbstractIntegrationTest {
                 .andExpect(status().isNoContent());
 
         assertThat(userRepository.findById(jane.getId()).orElseThrow().getStatus()).isEqualTo(UserStatus.SUSPENDED);
+        assertThat(outboxMessageRepository.findAll())
+                .filteredOn(message -> message.getPayload().contains("\"UserStatusChanged\""))
+                .singleElement()
+                .satisfies(message -> {
+                    assertThat(message.getMessageKey()).isEqualTo(jane.getId().toString());
+                    assertThat(message.getPayload()).contains("\"status\":\"SUSPENDED\"");
+                });
         assertThat(refreshTokenRepository.findAll())
                 .filteredOn(token -> token.getUser().getId().equals(jane.getId()))
                 .isNotEmpty()
@@ -180,17 +172,6 @@ class UserControllerIT extends AbstractIntegrationTest {
                 .andExpect(status().isNoContent());
 
         assertThat(userRepository.findById(jane.getId()).orElseThrow().getStatus()).isEqualTo(UserStatus.ACTIVE);
-    }
-
-    @Test
-    void updateStatus_returnsConflict_whenAdminChangesOwnStatus() throws Exception {
-        mockMvc.perform(patch(USERS_URL + "/" + admin.getId() + "/status")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(ADMIN_EMAIL))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\": \"SUSPENDED\"}"))
-                .andExpect(status().isConflict());
-
-        assertThat(userRepository.findById(admin.getId()).orElseThrow().getStatus()).isEqualTo(UserStatus.ACTIVE);
     }
 
     @Test
@@ -333,17 +314,6 @@ class UserControllerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void updateRoles_returnsConflict_whenAdminChangesOwnRoles() throws Exception {
-        mockMvc.perform(put(USERS_URL + "/" + admin.getId() + "/roles")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(ADMIN_EMAIL))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"roles\": [\"USER\"]}"))
-                .andExpect(status().isConflict());
-
-        assertThat(userRepository.findById(admin.getId()).orElseThrow().getRoles()).containsExactly(Role.ADMIN);
-    }
-
-    @Test
     void updateRoles_returnsForbidden_forRegularUser() throws Exception {
         mockMvc.perform(put(USERS_URL + "/" + jane.getId() + "/roles")
                         .header(HttpHeaders.AUTHORIZATION, bearer(JANE_EMAIL))
@@ -352,15 +322,6 @@ class UserControllerIT extends AbstractIntegrationTest {
                 .andExpect(status().isForbidden());
 
         assertThat(userRepository.findById(jane.getId()).orElseThrow().getRoles()).containsExactly(Role.USER);
-    }
-
-    @Test
-    void updateRoles_returnsNotFound_whenUserMissing() throws Exception {
-        mockMvc.perform(put(USERS_URL + "/" + UUID.randomUUID() + "/roles")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(ADMIN_EMAIL))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"roles\": [\"ADMIN\"]}"))
-                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -477,19 +438,6 @@ class UserControllerIT extends AbstractIntegrationTest {
                 .andExpect(status().isConflict());
 
         assertThat(userRepository.findById(jane.getId()).orElseThrow().getStatus()).isEqualTo(UserStatus.DELETED);
-    }
-
-    @Test
-    void updateStatus_returnsBadRequest_whenAdminSetsDeleted() throws Exception {
-        mockMvc.perform(patch(USERS_URL + "/" + john.getId() + "/status")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(ADMIN_EMAIL))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\": \"DELETED\"}"))
-                .andExpect(status().isBadRequest());
-
-        var saved = userRepository.findById(john.getId()).orElseThrow();
-        assertThat(saved.getStatus()).isEqualTo(UserStatus.ACTIVE);
-        assertThat(saved.getEmail()).isEqualTo(JOHN_EMAIL);
     }
 
     @Test

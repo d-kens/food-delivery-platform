@@ -71,7 +71,7 @@ class PasswordResetControllerTest {
                         .content("{\"token\":\"raw-token\",\"newPassword\":\"short\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.newPassword[0]")
-                        .value("Password must be between 8 and 100 characters"));
+                        .value("Password must be between 8 and 72 characters"));
 
         verifyNoInteractions(passwordResetService);
     }

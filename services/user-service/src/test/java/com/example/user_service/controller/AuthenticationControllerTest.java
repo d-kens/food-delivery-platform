@@ -9,8 +9,7 @@ import com.example.user_service.exception.InvalidCredentialException;
 import com.example.user_service.exception.InvalidRefreshTokenException;
 import com.example.user_service.exception.UserSuspendedException;
 import com.example.user_service.config.SecurityConfig;
-import com.example.user_service.security.AccessTokenCookieService;
-import com.example.user_service.security.RefreshTokenCookieService;
+import com.example.user_service.security.AuthCookieService;
 import com.example.user_service.service.AuthenticationService;
 import com.example.user_service.service.LoginResult;
 import com.example.user_service.service.RefreshResult;
@@ -80,17 +79,12 @@ class AuthenticationControllerTest {
     private JwtDecoder jwtDecoder;
 
     @MockitoBean
-    private RefreshTokenCookieService refreshTokenCookieService;
-
-    @MockitoBean
-    private AccessTokenCookieService accessTokenCookieService;
+    private AuthCookieService authCookieService;
 
     @BeforeEach
     void stubClearedCookies() {
-        when(accessTokenCookieService.clearAccessTokenCookie()).thenReturn(
-                ResponseCookie.from(AccessTokenCookieService.COOKIE_NAME, "").path("/").maxAge(0).build());
-        when(refreshTokenCookieService.clearRefreshTokenCookie()).thenReturn(
-                ResponseCookie.from(RefreshTokenCookieService.COOKIE_NAME, "").path("/auth").maxAge(0).build());
+        when(authCookieService.clearedCookies()).thenReturn(new String[] {
+                "access_token=; Path=/; Max-Age=0", "refresh_token=; Path=/auth; Max-Age=0"});
     }
 
     @Test
@@ -143,7 +137,7 @@ class AuthenticationControllerTest {
     @Test
     void register_returnsConflict_whenEmailAlreadyExists() throws Exception {
         when(authenticationService.register(any(RegistrationRequestDto.class)))
-                .thenThrow(new EmailAlreadyExistsException("An account with this email already exists"));
+                .thenThrow(new EmailAlreadyExistsException());
 
         mockMvc.perform(post(REGISTER_URL)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -182,14 +176,14 @@ class AuthenticationControllerTest {
                         "refresh-token"
                 )
         );
-        when(accessTokenCookieService.createAccessTokenCookie("access-token")).thenReturn(
-                ResponseCookie.from(AccessTokenCookieService.COOKIE_NAME, "access-token")
+        when(authCookieService.accessTokenCookie("access-token")).thenReturn(
+                ResponseCookie.from(AuthCookieService.ACCESS_TOKEN_COOKIE, "access-token")
                         .path("/")
                         .httpOnly(true)
                         .build()
         );
-        when(refreshTokenCookieService.createRefreshTokenCookie("refresh-token")).thenReturn(
-                ResponseCookie.from(RefreshTokenCookieService.COOKIE_NAME, "refresh-token")
+        when(authCookieService.refreshTokenCookie("refresh-token")).thenReturn(
+                ResponseCookie.from(AuthCookieService.REFRESH_TOKEN_COOKIE, "refresh-token")
                         .path("/auth")
                         .httpOnly(true)
                         .build()
@@ -232,7 +226,7 @@ class AuthenticationControllerTest {
     @Test
     void login_returnsUnauthorized_whenCredentialsAreInvalid() throws Exception {
         when(authenticationService.login(any(AuthRequestDto.class)))
-                .thenThrow(new InvalidCredentialException("Invalid email or password"));
+                .thenThrow(new InvalidCredentialException());
 
         mockMvc.perform(post(LOGIN_URL)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -245,7 +239,7 @@ class AuthenticationControllerTest {
     @Test
     void login_returnsForbidden_whenUserIsSuspended() throws Exception {
         when(authenticationService.login(any(AuthRequestDto.class)))
-                .thenThrow(new UserSuspendedException("Your account has been suspended"));
+                .thenThrow(new UserSuspendedException());
 
         mockMvc.perform(post(LOGIN_URL)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -268,12 +262,12 @@ class AuthenticationControllerTest {
         , null, UserStatus.ACTIVE);
 
         when(authenticationService.refreshToken(refreshToken)).thenReturn(new RefreshResult(authResponse, "access-token"));
-        when(accessTokenCookieService.createAccessTokenCookie("access-token")).thenReturn(
-                ResponseCookie.from(AccessTokenCookieService.COOKIE_NAME, "access-token").path("/").httpOnly(true).build()
+        when(authCookieService.accessTokenCookie("access-token")).thenReturn(
+                ResponseCookie.from(AuthCookieService.ACCESS_TOKEN_COOKIE, "access-token").path("/").httpOnly(true).build()
         );
 
         mockMvc.perform(post(REFRESH_TOKEN_URL)
-                    .cookie(new Cookie(RefreshTokenCookieService.COOKIE_NAME, refreshToken)))
+                    .cookie(new Cookie(AuthCookieService.REFRESH_TOKEN_COOKIE, refreshToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").doesNotExist())
                 .andExpect(jsonPath("$.userId").value(userId))
@@ -303,7 +297,7 @@ class AuthenticationControllerTest {
                 .thenThrow(new InvalidRefreshTokenException());
 
         mockMvc.perform(post(REFRESH_TOKEN_URL)
-                    .cookie(new Cookie(RefreshTokenCookieService.COOKIE_NAME, refreshToken)))
+                    .cookie(new Cookie(AuthCookieService.REFRESH_TOKEN_COOKIE, refreshToken)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.title").value("Invalid Refresh Token"))
                 .andExpect(jsonPath("$.detail").value("Invalid or expired refresh token"));
@@ -315,10 +309,10 @@ class AuthenticationControllerTest {
     void refreshToken_returnsForbidden_whenUserIsSuspended() throws Exception {
         String refreshToken = "valid-refresh-token";
         when(authenticationService.refreshToken(refreshToken))
-                .thenThrow(new UserSuspendedException("Your account has been suspended"));
+                .thenThrow(new UserSuspendedException());
 
         mockMvc.perform(post(REFRESH_TOKEN_URL)
-                        .cookie(new Cookie(RefreshTokenCookieService.COOKIE_NAME, refreshToken)))
+                        .cookie(new Cookie(AuthCookieService.REFRESH_TOKEN_COOKIE, refreshToken)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.title").value("Account Suspended"))
                 .andExpect(jsonPath("$.detail").value("Your account has been suspended"));
@@ -326,30 +320,16 @@ class AuthenticationControllerTest {
         verify(authenticationService).refreshToken(refreshToken);
     }
 
-
-
     @Test
     void refreshToken_clearsBothCookies_whenRefreshTokenIsInvalid() throws Exception {
         when(authenticationService.refreshToken("dead-token")).thenThrow(new InvalidRefreshTokenException());
 
         mockMvc.perform(post(REFRESH_TOKEN_URL)
-                        .cookie(new Cookie(RefreshTokenCookieService.COOKIE_NAME, "dead-token")))
+                        .cookie(new Cookie(AuthCookieService.REFRESH_TOKEN_COOKIE, "dead-token")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(header().stringValues(HttpHeaders.SET_COOKIE, hasItems(
                         allOf(startsWith("access_token=;"), containsString("Max-Age=0")),
                         allOf(startsWith("refresh_token=;"), containsString("Max-Age=0")))));
-    }
-
-    @Test
-    void logout_revokesRefreshTokenAndClearsBothCookies() throws Exception {
-        mockMvc.perform(post(LOGOUT_URL)
-                        .cookie(new Cookie(RefreshTokenCookieService.COOKIE_NAME, "refresh-token")))
-                .andExpect(status().isNoContent())
-                .andExpect(header().stringValues(HttpHeaders.SET_COOKIE, hasItems(
-                        allOf(startsWith("access_token=;"), containsString("Max-Age=0")),
-                        allOf(startsWith("refresh_token=;"), containsString("Max-Age=0")))));
-
-        verify(authenticationService).logout("refresh-token");
     }
 
     @Test

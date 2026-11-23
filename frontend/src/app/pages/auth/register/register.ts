@@ -15,6 +15,10 @@ import {
   notBlank,
   shouldShowError,
 } from '../../../shared/forms/form-utils';
+import {
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+} from '../../../shared/forms/password-requirements';
 import { GoogleButton } from '../../../shared/google-button/google-button';
 import { Spinner } from '../../../shared/spinner/spinner';
 
@@ -61,7 +65,14 @@ export class Register {
     firstName: ['', [notBlank, Validators.maxLength(100)]],
     lastName: ['', [notBlank, Validators.maxLength(100)]],
     email: ['', [notBlank, Validators.email, Validators.maxLength(255)]],
-    password: ['', [notBlank, Validators.minLength(8), Validators.maxLength(100)]],
+    password: [
+      '',
+      [
+        notBlank,
+        Validators.minLength(PASSWORD_MIN_LENGTH),
+        Validators.maxLength(PASSWORD_MAX_LENGTH),
+      ],
+    ],
   });
 
   constructor() {

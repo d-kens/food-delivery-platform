@@ -9,8 +9,7 @@ import com.example.user_service.dto.UpdateUserRequestDto;
 import com.example.user_service.dto.UpdateUserRolesRequestDto;
 import com.example.user_service.dto.UpdateUserStatusRequestDto;
 import com.example.user_service.dto.UserResponseDto;
-import com.example.user_service.security.AccessTokenCookieService;
-import com.example.user_service.security.RefreshTokenCookieService;
+import com.example.user_service.security.AuthCookieService;
 import com.example.user_service.service.UserService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -40,8 +39,7 @@ import java.util.UUID;
 public class UserController {
 
     private final UserService userService;
-    private final AccessTokenCookieService accessTokenCookieService;
-    private final RefreshTokenCookieService refreshTokenCookieService;
+    private final AuthCookieService authCookieService;
 
     @GetMapping
     public PageResponseDto<UserResponseDto> getUsers(
@@ -72,7 +70,7 @@ public class UserController {
         userService.changePassword(UUID.fromString(jwt.getSubject()), request);
 
         return ResponseEntity.noContent()
-                .header(HttpHeaders.SET_COOKIE, clearedAuthCookies())
+                .header(HttpHeaders.SET_COOKIE, authCookieService.clearedCookies())
                 .build();
     }
 
@@ -83,7 +81,7 @@ public class UserController {
         userService.deleteCurrentUser(UUID.fromString(jwt.getSubject()), request);
 
         return ResponseEntity.noContent()
-                .header(HttpHeaders.SET_COOKIE, clearedAuthCookies())
+                .header(HttpHeaders.SET_COOKIE, authCookieService.clearedCookies())
                 .build();
     }
 
@@ -107,12 +105,5 @@ public class UserController {
             @PathVariable final UUID id,
             @Valid @RequestBody final UpdateUserRolesRequestDto request) {
         return userService.updateUserRoles(UUID.fromString(jwt.getSubject()), id, request.roles());
-    }
-
-    private String[] clearedAuthCookies() {
-        return new String[] {
-                accessTokenCookieService.clearAccessTokenCookie().toString(),
-                refreshTokenCookieService.clearRefreshTokenCookie().toString()
-        };
     }
 }
