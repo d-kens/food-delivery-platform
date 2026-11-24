@@ -11,7 +11,10 @@ import com.example.user_service.common.UserStatus;
 import com.example.user_service.entity.RefreshToken;
 import com.example.user_service.entity.User;
 import com.example.user_service.exception.*;
+import com.example.user_service.repository.UserIdentityRepository;
 import com.example.user_service.repository.UserRepository;
+import com.example.user_service.common.AuthProvider;
+import com.example.user_service.entity.UserIdentity;
 import com.example.user_service.security.JwtService;
 import com.example.user_service.service.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
@@ -43,6 +46,7 @@ class AuthenticationServiceTest {
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private RefreshTokenService refreshTokenService;
     @Mock private OutboxService outboxService;
+    @Mock private UserIdentityRepository userIdentityRepository;
 
     @InjectMocks private AuthenticationService authenticationService;
 
@@ -334,5 +338,123 @@ class AuthenticationServiceTest {
         authenticationService.logout(refreshToken);
 
         verify(refreshTokenService, never()).revoke(any());
+    }
+
+    @Test
+    void loginWithGoogle_whenGoogleAccountAlreadyLinked_issuesTokens() {
+        var user = createActiveUser("jane.doe@gmail.com");
+        when(userIdentityRepository.findByProviderAndSubject(AuthProvider.GOOGLE, "google-sub"))
+                .thenReturn(Optional.of(createGoogleIdentity(user)));
+        when(jwtService.generateToken(user)).thenReturn("access-token");
+        when(refreshTokenService.createFor(user)).thenReturn("refresh-token");
+
+        var result = authenticationService.loginWithGoogle(createGoogleAccount(true));
+
+        assertThat(result.accessToken()).isEqualTo("access-token");
+        assertThat(result.refreshToken()).isEqualTo("refresh-token");
+        verify(userRepository, never()).findByEmail(any());
+        verify(userIdentityRepository, never()).save(any());
+    }
+
+    @Test
+    void loginWithGoogle_whenEmailMatchesPasswordAccount_linksItAndRemovesPassword() {
+        var user = createActiveUser("jane.doe@gmail.com");
+        when(userIdentityRepository.findByProviderAndSubject(AuthProvider.GOOGLE, "google-sub")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("jane.doe@gmail.com")).thenReturn(Optional.of(user));
+        when(userIdentityRepository.existsByUserIdAndProvider(user.getId(), AuthProvider.GOOGLE)).thenReturn(false);
+
+        authenticationService.loginWithGoogle(createGoogleAccount(true));
+
+        assertThat(user.getPasswordHash()).isNull();
+        assertSavedGoogleIdentity(user);
+        verify(refreshTokenService).revokeAllFor(user.getId());
+        verify(refreshTokenService).createFor(user);
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void loginWithGoogle_whenEmailBelongsToAnotherGoogleAccount_throwsInvalidCredentialException() {
+        var user = createActiveUser("jane.doe@gmail.com");
+        when(userIdentityRepository.findByProviderAndSubject(AuthProvider.GOOGLE, "google-sub")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("jane.doe@gmail.com")).thenReturn(Optional.of(user));
+        when(userIdentityRepository.existsByUserIdAndProvider(user.getId(), AuthProvider.GOOGLE)).thenReturn(true);
+
+        assertThatThrownBy(() -> authenticationService.loginWithGoogle(createGoogleAccount(true)))
+                .isInstanceOf(InvalidCredentialException.class);
+
+        assertThat(user.getPasswordHash()).isEqualTo("encoded-password");
+        verify(userIdentityRepository, never()).save(any());
+        verify(refreshTokenService, never()).revokeAllFor(any());
+    }
+
+    @Test
+    void loginWithGoogle_whenNoUserExists_createsGoogleUserWithoutPassword() {
+        when(userIdentityRepository.findByProviderAndSubject(AuthProvider.GOOGLE, "google-sub")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("jane.doe@gmail.com")).thenReturn(Optional.empty());
+
+        authenticationService.loginWithGoogle(createGoogleAccount(true));
+
+        var userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(userCaptor.capture());
+        var saved = userCaptor.getValue();
+        assertThat(saved.getEmail()).isEqualTo("jane.doe@gmail.com");
+        assertThat(saved.getPasswordHash()).isNull();
+        assertThat(saved.getFirstName()).isEqualTo("Jane");
+        assertThat(saved.getLastName()).isEqualTo("Doe");
+        assertThat(saved.getRoles()).containsExactly(Role.USER);
+        assertThat(saved.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        assertSavedGoogleIdentity(saved);
+        verify(outboxService).saveUserEvent(any(UserEvent.class));
+        verify(refreshTokenService).createFor(saved);
+    }
+
+    @Test
+    void loginWithGoogle_whenGoogleHasNoNames_fallsBackToEmailAndEmptyLastName() {
+        when(userIdentityRepository.findByProviderAndSubject(AuthProvider.GOOGLE, "google-sub")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("jane.doe@gmail.com")).thenReturn(Optional.empty());
+
+        authenticationService.loginWithGoogle(new GoogleAccount("google-sub", "Jane.Doe@Gmail.com", true, null, null));
+
+        var userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(userCaptor.capture());
+        assertThat(userCaptor.getValue().getFirstName()).isEqualTo("jane.doe");
+        assertThat(userCaptor.getValue().getLastName()).isEmpty();
+    }
+
+    @Test
+    void loginWithGoogle_whenEmailNotVerified_throwsInvalidCredentialException() {
+        assertThatThrownBy(() -> authenticationService.loginWithGoogle(createGoogleAccount(false)))
+                .isInstanceOf(InvalidCredentialException.class);
+
+        verifyNoInteractions(userRepository, userIdentityRepository, refreshTokenService);
+    }
+
+    @Test
+    void loginWithGoogle_whenUserSuspended_throwsUserSuspendedException() {
+        var user = createActiveUser("jane.doe@gmail.com");
+        user.setStatus(UserStatus.SUSPENDED);
+        when(userIdentityRepository.findByProviderAndSubject(AuthProvider.GOOGLE, "google-sub"))
+                .thenReturn(Optional.of(createGoogleIdentity(user)));
+
+        assertThatThrownBy(() -> authenticationService.loginWithGoogle(createGoogleAccount(true)))
+                .isInstanceOf(UserSuspendedException.class);
+
+        verify(refreshTokenService, never()).createFor(any());
+    }
+
+    private void assertSavedGoogleIdentity(User user) {
+        var identityCaptor = ArgumentCaptor.forClass(UserIdentity.class);
+        verify(userIdentityRepository).save(identityCaptor.capture());
+        assertThat(identityCaptor.getValue().getUser()).isSameAs(user);
+        assertThat(identityCaptor.getValue().getProvider()).isEqualTo(AuthProvider.GOOGLE);
+        assertThat(identityCaptor.getValue().getSubject()).isEqualTo("google-sub");
+    }
+
+    private UserIdentity createGoogleIdentity(User user) {
+        return UserIdentity.builder().user(user).provider(AuthProvider.GOOGLE).subject("google-sub").build();
+    }
+
+    private GoogleAccount createGoogleAccount(boolean emailVerified) {
+        return new GoogleAccount("google-sub", "Jane.Doe@Gmail.com", emailVerified, "Jane", "Doe");
     }
 }

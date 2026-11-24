@@ -1,6 +1,8 @@
 package com.example.user_service.controller;
 
 import com.example.user_service.config.SecurityConfig;
+import com.example.user_service.security.GoogleLoginFailureHandler;
+import com.example.user_service.security.GoogleLoginSuccessHandler;
 import com.example.user_service.exception.InvalidPasswordResetTokenException;
 import com.example.user_service.service.PasswordResetService;
 import org.junit.jupiter.api.Test;
@@ -32,6 +34,12 @@ class PasswordResetControllerTest {
 
     @MockitoBean
     private JwtDecoder jwtDecoder;
+
+    @MockitoBean
+    private GoogleLoginSuccessHandler googleLoginSuccessHandler;
+
+    @MockitoBean
+    private GoogleLoginFailureHandler googleLoginFailureHandler;
 
     @Test
     void forgotPassword_acceptsRequestWithoutAuthentication() throws Exception {

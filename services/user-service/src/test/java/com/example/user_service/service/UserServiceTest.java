@@ -20,6 +20,7 @@ import com.example.user_service.exception.UserDeletedException;
 import com.example.user_service.exception.UserNotFoundException;
 import com.example.user_service.exception.UserSuspendedException;
 import com.example.user_service.outbox.OutboxService;
+import com.example.user_service.repository.UserIdentityRepository;
 import com.example.user_service.repository.UserRepository;
 import com.example.user_service.service.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
@@ -58,6 +59,7 @@ class UserServiceTest {
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private RefreshTokenService refreshTokenService;
     @Mock private OutboxService outboxService;
+    @Mock private UserIdentityRepository userIdentityRepository;
 
     @InjectMocks private UserService userService;
 
@@ -371,6 +373,7 @@ class UserServiceTest {
         assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
         assertThat(user.getDeletedAt()).isNotNull();
         verify(refreshTokenService).revokeAllFor(USER_ID);
+        verify(userIdentityRepository).deleteAllByUserId(USER_ID);
     }
 
     @Test

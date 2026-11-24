@@ -1,6 +1,14 @@
 server:
   port: 9001
 
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            redirect-uri: http://localhost:8080/api/user-service/login/oauth2/code/google
+
 security:
   jwt:
     cookie-secure: false

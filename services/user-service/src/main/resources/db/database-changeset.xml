@@ -193,4 +193,40 @@
         </rollback>
     </changeSet>
 
+    <changeSet id="008-create-user-identities-table" author="d-kens">
+        <createTable tableName="user_identities">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" primaryKeyName="pk_user_identities" nullable="false"/>
+            </column>
+
+            <column name="user_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="provider" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="subject" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="user_identities" baseColumnNames="user_id" constraintName="fk_user_identities_user"
+                                 referencedTableName="users" referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+
+        <addUniqueConstraint tableName="user_identities" columnNames="provider, subject"
+                             constraintName="uk_user_identities_provider_subject"/>
+
+        <addUniqueConstraint tableName="user_identities" columnNames="user_id, provider"
+                             constraintName="uk_user_identities_user_provider"/>
+
+        <dropNotNullConstraint tableName="users" columnName="password_hash" columnDataType="VARCHAR(255)"/>
+    </changeSet>
+
 </databaseChangeLog>
