@@ -27,8 +27,8 @@ import java.time.Instant;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "user_identities")
-public class UserIdentity {
+@Table(name = "user_external_identities")
+public class UserExternalIdentity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

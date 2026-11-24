@@ -23,7 +23,7 @@ import com.example.user_service.exception.UserDeletedException;
 import com.example.user_service.exception.UserNotFoundException;
 import com.example.user_service.exception.UserSuspendedException;
 import com.example.user_service.outbox.OutboxService;
-import com.example.user_service.repository.UserIdentityRepository;
+import com.example.user_service.repository.UserExternalIdentityRepository;
 import com.example.user_service.repository.UserRepository;
 import com.example.user_service.service.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
@@ -50,7 +50,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenService refreshTokenService;
     private final OutboxService outboxService;
-    private final UserIdentityRepository userIdentityRepository;
+    private final UserExternalIdentityRepository userExternalIdentityRepository;
 
     @Transactional(readOnly = true)
     public UserResponseDto getCurrentUser(final UUID userId) {
@@ -183,7 +183,7 @@ public class UserService {
         user.setDeletedAt(Instant.now());
 
         refreshTokenService.revokeAllFor(userId);
-        userIdentityRepository.deleteAllByUserId(userId);
+        userExternalIdentityRepository.deleteAllByUserId(userId);
         outboxService.saveUserEvent(UserEvent.deleted(userId));
     }
 

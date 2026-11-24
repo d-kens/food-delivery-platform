@@ -8,14 +8,14 @@ import com.example.user_service.dto.RegistrationRequestDto;
 import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.common.Role;
 import com.example.user_service.entity.User;
-import com.example.user_service.entity.UserIdentity;
+import com.example.user_service.entity.UserExternalIdentity;
 import com.example.user_service.event.UserEvent;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.InvalidCredentialException;
 import com.example.user_service.exception.InvalidRefreshTokenException;
 import com.example.user_service.exception.UserSuspendedException;
 import com.example.user_service.outbox.OutboxService;
-import com.example.user_service.repository.UserIdentityRepository;
+import com.example.user_service.repository.UserExternalIdentityRepository;
 import com.example.user_service.repository.UserRepository;
 import com.example.user_service.security.JwtService;
 import com.example.user_service.service.mapper.UserMapper;
@@ -35,7 +35,7 @@ public class AuthenticationService {
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenService refreshTokenService;
     private final OutboxService outboxService;
-    private final UserIdentityRepository userIdentityRepository;
+    private final UserExternalIdentityRepository userExternalIdentityRepository;
 
     @Transactional
     public UserResponseDto register(final RegistrationRequestDto request) {
@@ -79,8 +79,8 @@ public class AuthenticationService {
             throw new InvalidCredentialException();
         }
 
-        User user = userIdentityRepository.findByProviderAndSubject(AuthProvider.GOOGLE, googleAccount.subject())
-                .map(UserIdentity::getUser)
+        User user = userExternalIdentityRepository.findByProviderAndSubject(AuthProvider.GOOGLE, googleAccount.subject())
+                .map(UserExternalIdentity::getUser)
                 .orElseGet(() -> linkOrCreateGoogleUser(googleAccount));
 
         if (user.getStatus() != UserStatus.ACTIVE) {
@@ -99,7 +99,7 @@ public class AuthenticationService {
     }
 
     private User linkGoogleAccount(final User user, final String googleSubject) {
-        if (userIdentityRepository.existsByUserIdAndProvider(user.getId(), AuthProvider.GOOGLE)) {
+        if (userExternalIdentityRepository.existsByUserIdAndProvider(user.getId(), AuthProvider.GOOGLE)) {
             throw new InvalidCredentialException();
         }
 
@@ -124,7 +124,7 @@ public class AuthenticationService {
     }
 
     private void saveGoogleIdentity(final User user, final String googleSubject) {
-        userIdentityRepository.save(UserIdentity.builder()
+        userExternalIdentityRepository.save(UserExternalIdentity.builder()
                 .user(user)
                 .provider(AuthProvider.GOOGLE)
                 .subject(googleSubject)
