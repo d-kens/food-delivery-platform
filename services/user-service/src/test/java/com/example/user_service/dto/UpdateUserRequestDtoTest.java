@@ -33,14 +33,14 @@ class UpdateUserRequestDtoTest {
 
     @Test
     void emptyRequest_hasNoViolations() {
-        var request = new UpdateUserRequestDto(null, null, null, null, null);
+        var request = new UpdateUserRequestDto(null, null, null);
 
         assertThat(validator.validate(request)).isEmpty();
     }
 
     @Test
     void fullRequest_hasNoViolations() {
-        var request = new UpdateUserRequestDto("Jane", "Doe", "jane.doe@gmail.com", "+254707127309", "secret123");
+        var request = new UpdateUserRequestDto("Jane", "Doe", "+254707127309");
 
         assertThat(validator.validate(request)).isEmpty();
     }
@@ -48,44 +48,29 @@ class UpdateUserRequestDtoTest {
     @ParameterizedTest
     @ValueSource(strings = {"", "   "})
     void names_mustNotBeBlank_whenProvided(String name) {
-        var request = new UpdateUserRequestDto(name, name, null, null, null);
+        var request = new UpdateUserRequestDto(name, name, null);
 
         assertThat(invalidFields(validator.validate(request))).containsOnly("firstName", "lastName");
     }
 
     @Test
     void names_atMaxLength_areValid() {
-        var request = new UpdateUserRequestDto("a".repeat(100), "a".repeat(100), null, null, null);
+        var request = new UpdateUserRequestDto("a".repeat(100), "a".repeat(100), null);
 
         assertThat(validator.validate(request)).isEmpty();
     }
 
     @Test
     void names_mustNotExceedHundredCharacters() {
-        var request = new UpdateUserRequestDto("a".repeat(101), "a".repeat(101), null, null, null);
+        var request = new UpdateUserRequestDto("a".repeat(101), "a".repeat(101), null);
 
         assertThat(invalidFields(validator.validate(request))).containsOnly("firstName", "lastName");
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"", "   ", "not-an-email"})
-    void email_mustBeValid_whenProvided(String email) {
-        var request = new UpdateUserRequestDto(null, null, email, null, null);
-
-        assertThat(invalidFields(validator.validate(request))).containsOnly("email");
-    }
-
-    @Test
-    void email_mustNotExceed255Characters() {
-        var request = new UpdateUserRequestDto(null, null, emailOfLength(256), null, null);
-
-        assertThat(invalidFields(validator.validate(request))).containsOnly("email");
-    }
-
-    @ParameterizedTest
     @ValueSource(strings = {"0707127", "+254707127309", "123456789012345"})
     void phoneNumber_acceptsSevenToFifteenDigits(String phoneNumber) {
-        var request = new UpdateUserRequestDto(null, null, null, phoneNumber, null);
+        var request = new UpdateUserRequestDto(null, null, phoneNumber);
 
         assertThat(validator.validate(request)).isEmpty();
     }
@@ -93,15 +78,9 @@ class UpdateUserRequestDtoTest {
     @ParameterizedTest
     @ValueSource(strings = {"", "123456", "1234567890123456", "12ab567", "254-707-127", "++254707127309"})
     void phoneNumber_rejectsInvalidValues(String phoneNumber) {
-        var request = new UpdateUserRequestDto(null, null, null, phoneNumber, null);
+        var request = new UpdateUserRequestDto(null, null, phoneNumber);
 
         assertThat(invalidFields(validator.validate(request))).containsOnly("phoneNumber");
-    }
-
-    private static String emailOfLength(int length) {
-        String localPart = "a".repeat(64);
-        int lastLabelLength = length - localPart.length() - "@".length() - 2 * (63 + ".".length());
-        return localPart + "@" + "b".repeat(63) + "." + "c".repeat(63) + "." + "d".repeat(lastLabelLength);
     }
 
     private Set<String> invalidFields(Set<ConstraintViolation<UpdateUserRequestDto>> violations) {

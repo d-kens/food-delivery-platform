@@ -3,14 +3,17 @@ package com.example.user_service.service;
 import com.example.user_service.common.Role;
 import com.example.user_service.common.UserStatus;
 import com.example.user_service.dto.ChangePasswordRequestDto;
-import com.example.user_service.dto.DeleteAccountRequestDto;
 import com.example.user_service.dto.UpdateUserRequestDto;
 import com.example.user_service.dto.UserResponseDto;
+import com.example.user_service.common.AccountActionPurpose;
+import com.example.user_service.config.AccountActionProperties;
+import com.example.user_service.entity.AccountActionToken;
 import com.example.user_service.entity.User;
 import com.example.user_service.event.NotificationEvent;
 import com.example.user_service.event.UserEvent;
 import com.example.user_service.exception.AccountNotFoundException;
 import com.example.user_service.exception.EmailAlreadyExistsException;
+import com.example.user_service.exception.InvalidAccountActionTokenException;
 import com.example.user_service.exception.InvalidCurrentPasswordException;
 import com.example.user_service.exception.PasswordNotSetException;
 import com.example.user_service.exception.InvalidStatusChangeException;
@@ -29,6 +32,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -37,6 +41,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -61,6 +66,10 @@ class UserServiceTest {
     @Mock private RefreshTokenService refreshTokenService;
     @Mock private OutboxService outboxService;
     @Mock private UserExternalIdentityRepository userExternalIdentityRepository;
+    @Mock private AccountActionTokenService accountActionTokenService;
+    @Spy private AccountActionProperties accountActionProperties = new AccountActionProperties(
+            Duration.ofMinutes(30), Duration.ofMinutes(1), "http://localhost:4200/account/delete/confirm",
+            "http://localhost:4200/account/email/confirm");
 
     @InjectMocks private UserService userService;
 
@@ -188,7 +197,7 @@ class UserServiceTest {
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
         when(userRepository.existsByPhoneNumber("0707127309")).thenReturn(false);
 
-        userService.updateCurrentUser(USER_ID, new UpdateUserRequestDto(" Janet ", null, null, "0707127309", null));
+        userService.updateCurrentUser(USER_ID, new UpdateUserRequestDto(" Janet ", null, "0707127309"));
 
         assertThat(user.getFirstName()).isEqualTo("Janet");
         assertThat(user.getLastName()).isEqualTo("Doe");
@@ -202,7 +211,7 @@ class UserServiceTest {
         var user = user(UserStatus.ACTIVE);
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
 
-        userService.updateCurrentUser(USER_ID, new UpdateUserRequestDto("Janet", null, null, null, null));
+        userService.updateCurrentUser(USER_ID, new UpdateUserRequestDto("Janet", null, null));
 
         var captor = ArgumentCaptor.forClass(UserEvent.class);
         verify(outboxService).saveUserEvent(captor.capture());
@@ -221,88 +230,108 @@ class UserServiceTest {
         var user = user(UserStatus.ACTIVE);
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
 
-        userService.updateCurrentUser(USER_ID, new UpdateUserRequestDto(" Jane ", "Doe", "jane.doe@gmail.com", null, null));
+        userService.updateCurrentUser(USER_ID, new UpdateUserRequestDto(" Jane ", "Doe", null));
 
         verify(outboxService, never()).saveUserEvent(any());
     }
 
     @Test
-    void updateCurrentUser_changesEmail_whenCurrentPasswordMatches() {
+    void requestEmailChange_queuesConfirmationToCurrentAddress_withoutChangingEmail() {
         var user = user(UserStatus.ACTIVE);
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("secret123", "hashed")).thenReturn(true);
-        when(userRepository.existsByEmail("janet@gmail.com")).thenReturn(false);
+        when(accountActionTokenService.create(user, AccountActionPurpose.CHANGE_EMAIL, "janet@gmail.com"))
+                .thenReturn(Optional.of("raw-token"));
 
-        userService.updateCurrentUser(USER_ID, new UpdateUserRequestDto(null, null, "janet@gmail.com", null, "secret123"));
+        userService.requestEmailChange(USER_ID, " Janet@Gmail.com ");
 
-        assertThat(user.getEmail()).isEqualTo("janet@gmail.com");
-    }
-
-    @Test
-    void updateCurrentUser_savesNormalizedEmail() {
-        var user = user(UserStatus.ACTIVE);
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("secret123", "hashed")).thenReturn(true);
-        when(userRepository.existsByEmail("janet@gmail.com")).thenReturn(false);
-
-        userService.updateCurrentUser(USER_ID, new UpdateUserRequestDto(null, null, " Janet@Gmail.com ", null, "secret123"));
-
-        assertThat(user.getEmail()).isEqualTo("janet@gmail.com");
-    }
-
-    @Test
-    void updateCurrentUser_treatsEmailWithDifferentCaseAsUnchanged() {
-        var user = user(UserStatus.ACTIVE);
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-
-        userService.updateCurrentUser(USER_ID, new UpdateUserRequestDto(null, null, "Jane.Doe@Gmail.com", null, null));
-
-        verify(passwordEncoder, never()).matches(any(), any());
-        verify(outboxService, never()).saveUserEvent(any());
-    }
-
-    @Test
-    void updateCurrentUser_doesNotRequirePassword_whenEmailIsUnchanged() {
-        var user = user(UserStatus.ACTIVE);
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-
-        userService.updateCurrentUser(USER_ID, new UpdateUserRequestDto(null, null, "jane.doe@gmail.com", null, null));
-
-        verify(passwordEncoder, never()).matches(any(), any());
-    }
-
-    @Test
-    void updateCurrentUser_throws_whenChangingEmailWithoutPassword() {
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user(UserStatus.ACTIVE)));
-
-        assertThatThrownBy(() -> userService.updateCurrentUser(USER_ID,
-                new UpdateUserRequestDto(null, null, "janet@gmail.com", null, null)))
-                .isInstanceOf(InvalidCurrentPasswordException.class)
-                .hasMessage("Current password is required to change your email");
-    }
-
-    @Test
-    void updateCurrentUser_throws_whenCurrentPasswordIsWrong() {
-        var user = user(UserStatus.ACTIVE);
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
-
-        assertThatThrownBy(() -> userService.updateCurrentUser(USER_ID,
-                new UpdateUserRequestDto(null, null, "janet@gmail.com", null, "wrong")))
-                .isInstanceOf(InvalidCurrentPasswordException.class)
-                .hasMessage("Current password is incorrect");
         assertThat(user.getEmail()).isEqualTo("jane.doe@gmail.com");
+        var captor = ArgumentCaptor.forClass(NotificationEvent.class);
+        verify(outboxService).saveNotification(captor.capture());
+        var notification = captor.getValue();
+        assertThat(notification.type()).isEqualTo(NotificationEvent.CONFIRM_EMAIL_CHANGE);
+        assertThat(notification.recipientId()).isEqualTo(USER_ID);
+        assertThat(notification.payload())
+                .containsEntry("firstName", "Jane")
+                .containsEntry("newEmail", "janet@gmail.com")
+                .containsEntry("confirmUrl", "http://localhost:4200/account/email/confirm?token=raw-token")
+                .containsEntry("expiresInMinutes", 30L);
     }
 
     @Test
-    void updateCurrentUser_throwsConflict_whenEmailTaken() {
+    void requestEmailChange_doesNothing_whenEmailIsUnchanged() {
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user(UserStatus.ACTIVE)));
-        when(passwordEncoder.matches(anyString(), anyString())).thenReturn(true);
+
+        userService.requestEmailChange(USER_ID, "Jane.Doe@Gmail.com");
+
+        verify(accountActionTokenService, never()).create(any(), any(), any());
+        verify(outboxService, never()).saveNotification(any());
+    }
+
+    @Test
+    void requestEmailChange_throwsConflict_whenEmailTaken() {
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user(UserStatus.ACTIVE)));
         when(userRepository.existsByEmail("taken@gmail.com")).thenReturn(true);
 
-        assertThatThrownBy(() -> userService.updateCurrentUser(USER_ID,
-                new UpdateUserRequestDto(null, null, "taken@gmail.com", null, "secret123")))
+        assertThatThrownBy(() -> userService.requestEmailChange(USER_ID, "taken@gmail.com"))
                 .isInstanceOf(EmailAlreadyExistsException.class);
+
+        verify(accountActionTokenService, never()).create(any(), any(), any());
+    }
+
+    @Test
+    void requestEmailChange_sendsNothing_whenALinkWasJustSent() {
+        var user = user(UserStatus.ACTIVE);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(accountActionTokenService.create(user, AccountActionPurpose.CHANGE_EMAIL, "janet@gmail.com"))
+                .thenReturn(Optional.empty());
+
+        userService.requestEmailChange(USER_ID, "janet@gmail.com");
+
+        verify(outboxService, never()).saveNotification(any());
+    }
+
+    @Test
+    void confirmEmailChange_changesEmailAndSavesUserUpdatedEvent() {
+        var user = user(UserStatus.ACTIVE);
+        when(accountActionTokenService.consume("raw-token", AccountActionPurpose.CHANGE_EMAIL))
+                .thenReturn(emailChangeToken(user, "janet@gmail.com"));
+
+        userService.confirmEmailChange("raw-token");
+
+        assertThat(user.getEmail()).isEqualTo("janet@gmail.com");
+        var captor = ArgumentCaptor.forClass(UserEvent.class);
+        verify(outboxService).saveUserEvent(captor.capture());
+        assertThat(captor.getValue().eventType()).isEqualTo(UserEvent.USER_UPDATED);
+        assertThat(captor.getValue().email()).isEqualTo("janet@gmail.com");
+    }
+
+    @Test
+    void confirmEmailChange_throwsConflict_whenEmailWasTakenMeanwhile() {
+        var user = user(UserStatus.ACTIVE);
+        when(accountActionTokenService.consume("raw-token", AccountActionPurpose.CHANGE_EMAIL))
+                .thenReturn(emailChangeToken(user, "janet@gmail.com"));
+        when(userRepository.existsByEmail("janet@gmail.com")).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.confirmEmailChange("raw-token"))
+                .isInstanceOf(EmailAlreadyExistsException.class);
+
+        assertThat(user.getEmail()).isEqualTo("jane.doe@gmail.com");
+        verify(outboxService, never()).saveUserEvent(any());
+    }
+
+    @Test
+    void confirmEmailChange_throws_whenTokenIsInvalid() {
+        when(accountActionTokenService.consume("bad-token", AccountActionPurpose.CHANGE_EMAIL))
+                .thenThrow(new InvalidAccountActionTokenException());
+
+        assertThatThrownBy(() -> userService.confirmEmailChange("bad-token"))
+                .isInstanceOf(InvalidAccountActionTokenException.class);
+
+        verify(outboxService, never()).saveUserEvent(any());
+    }
+
+    private AccountActionToken emailChangeToken(User user, String newEmail) {
+        return AccountActionToken.builder().user(user).purpose(AccountActionPurpose.CHANGE_EMAIL).newEmail(newEmail).build();
     }
 
     @Test
@@ -311,7 +340,7 @@ class UserServiceTest {
         when(userRepository.existsByPhoneNumber("0711000000")).thenReturn(true);
 
         assertThatThrownBy(() -> userService.updateCurrentUser(USER_ID,
-                new UpdateUserRequestDto(null, null, null, "0711000000", null)))
+                new UpdateUserRequestDto(null, null, "0711000000")))
                 .isInstanceOf(PhoneNumberAlreadyExistsException.class);
     }
 
@@ -320,7 +349,7 @@ class UserServiceTest {
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user(UserStatus.SUSPENDED)));
 
         assertThatThrownBy(() -> userService.updateCurrentUser(USER_ID,
-                new UpdateUserRequestDto("Janet", null, null, null, null)))
+                new UpdateUserRequestDto("Janet", null, null)))
                 .isInstanceOf(UserSuspendedException.class);
     }
 
@@ -355,15 +384,55 @@ class UserServiceTest {
     }
 
     @Test
-    void deleteCurrentUser_anonymisesUserAndRevokesRefreshTokens() {
+    void requestAccountDeletion_queuesConfirmationEmailWithLink() {
+        var user = user(UserStatus.ACTIVE);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(accountActionTokenService.create(user, AccountActionPurpose.DELETE_ACCOUNT, null)).thenReturn(Optional.of("raw-token"));
+
+        userService.requestAccountDeletion(USER_ID);
+
+        var captor = ArgumentCaptor.forClass(NotificationEvent.class);
+        verify(outboxService).saveNotification(captor.capture());
+        var notification = captor.getValue();
+        assertThat(notification.type()).isEqualTo(NotificationEvent.CONFIRM_ACCOUNT_DELETION);
+        assertThat(notification.recipientId()).isEqualTo(USER_ID);
+        assertThat(notification.payload())
+                .containsEntry("firstName", "Jane")
+                .containsEntry("confirmUrl", "http://localhost:4200/account/delete/confirm?token=raw-token")
+                .containsEntry("expiresInMinutes", 30L);
+        assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
+    }
+
+    @Test
+    void requestAccountDeletion_sendsNothing_whenALinkWasJustSent() {
+        var user = user(UserStatus.ACTIVE);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(accountActionTokenService.create(user, AccountActionPurpose.DELETE_ACCOUNT, null)).thenReturn(Optional.empty());
+
+        userService.requestAccountDeletion(USER_ID);
+
+        verify(outboxService, never()).saveNotification(any());
+    }
+
+    @Test
+    void requestAccountDeletion_throwsSuspended_whenUserIsSuspended() {
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user(UserStatus.SUSPENDED)));
+
+        assertThatThrownBy(() -> userService.requestAccountDeletion(USER_ID))
+                .isInstanceOf(UserSuspendedException.class);
+
+        verify(accountActionTokenService, never()).create(any(), any(), any());
+    }
+
+    @Test
+    void confirmAccountDeletion_anonymisesUserAndRevokesSessions() {
         var user = user(UserStatus.ACTIVE);
         user.setPhoneNumber("+254707127309");
         user.getRoles().add(Role.USER);
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("OldPassw0rd!", "hashed")).thenReturn(true);
+        when(accountActionTokenService.consume("raw-token", AccountActionPurpose.DELETE_ACCOUNT)).thenReturn(deleteToken(user));
         when(passwordEncoder.encode(anyString())).thenReturn("unusable-hash");
 
-        userService.deleteCurrentUser(USER_ID, new DeleteAccountRequestDto("OldPassw0rd!"));
+        userService.confirmAccountDeletion("raw-token");
 
         assertThat(user.getEmail()).isEqualTo("deleted-" + USER_ID + "@deleted.invalid");
         assertThat(user.getPhoneNumber()).isNull();
@@ -378,12 +447,11 @@ class UserServiceTest {
     }
 
     @Test
-    void deleteCurrentUser_savesUserDeletedEvent() {
+    void confirmAccountDeletion_savesUserDeletedEvent() {
         var user = user(UserStatus.ACTIVE);
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("OldPassw0rd!", "hashed")).thenReturn(true);
+        when(accountActionTokenService.consume("raw-token", AccountActionPurpose.DELETE_ACCOUNT)).thenReturn(deleteToken(user));
 
-        userService.deleteCurrentUser(USER_ID, new DeleteAccountRequestDto("OldPassw0rd!"));
+        userService.confirmAccountDeletion("raw-token");
 
         var captor = ArgumentCaptor.forClass(UserEvent.class);
         verify(outboxService).saveUserEvent(captor.capture());
@@ -394,28 +462,19 @@ class UserServiceTest {
     }
 
     @Test
-    void deleteCurrentUser_throws_andChangesNothing_whenCurrentPasswordIsWrong() {
-        var user = user(UserStatus.ACTIVE);
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
+    void confirmAccountDeletion_throws_andChangesNothing_whenTokenIsInvalid() {
+        when(accountActionTokenService.consume("bad-token", AccountActionPurpose.DELETE_ACCOUNT))
+                .thenThrow(new InvalidAccountActionTokenException());
 
-        assertThatThrownBy(() -> userService.deleteCurrentUser(USER_ID, new DeleteAccountRequestDto("wrong")))
-                .isInstanceOf(InvalidCurrentPasswordException.class)
-                .hasMessage("Current password is incorrect");
+        assertThatThrownBy(() -> userService.confirmAccountDeletion("bad-token"))
+                .isInstanceOf(InvalidAccountActionTokenException.class);
 
-        assertThat(user.getEmail()).isEqualTo("jane.doe@gmail.com");
-        assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
-        assertThat(user.getDeletedAt()).isNull();
         verify(refreshTokenService, never()).revokeAllFor(any());
         verify(outboxService, never()).saveUserEvent(any());
     }
 
-    @Test
-    void deleteCurrentUser_throwsSuspended_whenUserIsSuspended() {
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user(UserStatus.SUSPENDED)));
-
-        assertThatThrownBy(() -> userService.deleteCurrentUser(USER_ID, new DeleteAccountRequestDto("OldPassw0rd!")))
-                .isInstanceOf(UserSuspendedException.class);
+    private AccountActionToken deleteToken(User user) {
+        return AccountActionToken.builder().user(user).purpose(AccountActionPurpose.DELETE_ACCOUNT).build();
     }
 
     @Test

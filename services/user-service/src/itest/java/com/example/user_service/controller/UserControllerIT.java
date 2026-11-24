@@ -18,6 +18,10 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.web.util.UriComponentsBuilder;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.EnumSet;
 import java.util.List;
@@ -57,6 +61,9 @@ class UserControllerIT extends AbstractIntegrationTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private JsonMapper jsonMapper;
 
     private User admin;
     private User jane;
@@ -203,44 +210,69 @@ class UserControllerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void updateMe_changesEmail_whenCurrentPasswordIsCorrect() throws Exception {
+    void changeEmail_changesEmailOnlyAfterLinkIsConfirmed() throws Exception {
         String newEmail = "janet@gmail.com";
 
-        mockMvc.perform(patch(USERS_URL + "/me")
+        mockMvc.perform(post(USERS_URL + "/me/email")
                         .header(HttpHeaders.AUTHORIZATION, bearer(JANE_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\": \"%s\", \"currentPassword\": \"%s\"}".formatted(newEmail, PASSWORD)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email").value(newEmail));
+                        .content("{\"newEmail\": \"Janet@Gmail.com\"}"))
+                .andExpect(status().isAccepted());
+
+        assertThat(userRepository.findById(jane.getId()).orElseThrow().getEmail()).isEqualTo(JANE_EMAIL);
+        var notification = latestNotification("CONFIRM_EMAIL_CHANGE");
+        assertThat(notification.get("recipientId").asString()).isEqualTo(jane.getId().toString());
+        assertThat(notification.get("payload").get("newEmail").asString()).isEqualTo(newEmail);
+        String token = tokenFrom(notification, "http://localhost:4200/account/email/confirm?token=");
+
+        confirmEmailChange(token).andExpect(status().isNoContent());
 
         assertThat(userRepository.findById(jane.getId()).orElseThrow().getEmail()).isEqualTo(newEmail);
-
         mockMvc.perform(post(LOGIN_URL)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson(newEmail, PASSWORD)))
                 .andExpect(status().isOk());
+
+        confirmEmailChange(token)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("This link is invalid or has expired"));
     }
 
     @Test
-    void updateMe_returnsBadRequest_andKeepsEmail_whenCurrentPasswordIsWrong() throws Exception {
-        mockMvc.perform(patch(USERS_URL + "/me")
+    void changeEmail_returnsConflict_whenEmailBelongsToAnotherUser() throws Exception {
+        mockMvc.perform(post(USERS_URL + "/me/email")
                         .header(HttpHeaders.AUTHORIZATION, bearer(JANE_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\": \"janet@gmail.com\", \"currentPassword\": \"Wr0ngPassword!\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value("Current password is incorrect"));
+                        .content("{\"newEmail\": \"%s\"}".formatted(JOHN_EMAIL)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Email already exists"));
 
         assertThat(userRepository.findById(jane.getId()).orElseThrow().getEmail()).isEqualTo(JANE_EMAIL);
     }
 
     @Test
-    void updateMe_returnsConflict_whenEmailBelongsToAnotherUser() throws Exception {
-        mockMvc.perform(patch(USERS_URL + "/me")
+    void confirmEmailChange_returnsConflict_andKeepsEmail_whenEmailWasTakenMeanwhile() throws Exception {
+        String newEmail = "janet@gmail.com";
+        mockMvc.perform(post(USERS_URL + "/me/email")
                         .header(HttpHeaders.AUTHORIZATION, bearer(JANE_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\": \"%s\", \"currentPassword\": \"%s\"}".formatted(JOHN_EMAIL, PASSWORD)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.title").value("Email already exists"));
+                        .content("{\"newEmail\": \"%s\"}".formatted(newEmail)))
+                .andExpect(status().isAccepted());
+        String token = tokenFrom(latestNotification("CONFIRM_EMAIL_CHANGE"), "http://localhost:4200/account/email/confirm?token=");
+
+        mockMvc.perform(post("/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "%s",
+                                  "password": "%s",
+                                  "firstName": "Janet",
+                                  "lastName": "Other"
+                                }
+                                """.formatted(newEmail, PASSWORD)))
+                .andExpect(status().isCreated());
+
+        confirmEmailChange(token).andExpect(status().isConflict());
 
         assertThat(userRepository.findById(jane.getId()).orElseThrow().getEmail()).isEqualTo(JANE_EMAIL);
     }
@@ -330,10 +362,13 @@ class UserControllerIT extends AbstractIntegrationTest {
         login(JOHN_EMAIL);
         String accessToken = login(JANE_EMAIL);
 
-        List<String> setCookies = mockMvc.perform(delete(USERS_URL + "/me")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(deleteAccountJson(PASSWORD)))
+        mockMvc.perform(delete(USERS_URL + "/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                .andExpect(status().isAccepted());
+
+        assertThat(userRepository.findById(jane.getId()).orElseThrow().getStatus()).isEqualTo(UserStatus.ACTIVE);
+        String deletionToken = tokenFromDeletionEmail();
+
+        List<String> setCookies = confirmDeletion(deletionToken)
                 .andExpect(status().isNoContent())
                 .andReturn()
                 .getResponse()
@@ -369,15 +404,15 @@ class UserControllerIT extends AbstractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson(JANE_EMAIL, PASSWORD)))
                 .andExpect(status().isUnauthorized());
+
+        confirmDeletion(deletionToken)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("This link is invalid or has expired"));
     }
 
     @Test
     void deleteMe_freesEmailAndPhoneForReuse() throws Exception {
-        mockMvc.perform(delete(USERS_URL + "/me")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(JANE_EMAIL))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(deleteAccountJson(PASSWORD)))
-                .andExpect(status().isNoContent());
+        deleteAccount(bearer(JANE_EMAIL));
 
         mockMvc.perform(post("/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -399,13 +434,13 @@ class UserControllerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void deleteMe_returnsBadRequest_andKeepsAccount_whenCurrentPasswordIsWrong() throws Exception {
-        mockMvc.perform(delete(USERS_URL + "/me")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(JANE_EMAIL))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(deleteAccountJson("Wr0ngPassword!")))
+    void confirmDeleteMe_returnsBadRequest_andKeepsAccount_whenTokenIsInvalid() throws Exception {
+        mockMvc.perform(delete(USERS_URL + "/me").header(HttpHeaders.AUTHORIZATION, bearer(JANE_EMAIL)))
+                .andExpect(status().isAccepted());
+
+        confirmDeletion("not-a-real-token")
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value("Current password is incorrect"));
+                .andExpect(jsonPath("$.detail").value("This link is invalid or has expired"));
 
         var saved = userRepository.findById(jane.getId()).orElseThrow();
         assertThat(saved.getStatus()).isEqualTo(UserStatus.ACTIVE);
@@ -414,11 +449,7 @@ class UserControllerIT extends AbstractIntegrationTest {
 
     @Test
     void deletedUsers_areListedByStatusFilter_andCannotBeChangedByAdmin() throws Exception {
-        mockMvc.perform(delete(USERS_URL + "/me")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(JANE_EMAIL))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(deleteAccountJson(PASSWORD)))
-                .andExpect(status().isNoContent());
+        deleteAccount(bearer(JANE_EMAIL));
         String adminToken = bearer(ADMIN_EMAIL);
 
         mockMvc.perform(get(USERS_URL).param("status", "DELETED").header(HttpHeaders.AUTHORIZATION, adminToken))
@@ -500,12 +531,42 @@ class UserControllerIT extends AbstractIntegrationTest {
                 .allSatisfy(token -> assertThat(token.getRevokedAt()).isNull());
     }
 
-    private String deleteAccountJson(String currentPassword) {
-        return """
-                {
-                  "currentPassword": "%s"
-                }
-                """.formatted(currentPassword);
+    private void deleteAccount(String bearer) throws Exception {
+        mockMvc.perform(delete(USERS_URL + "/me").header(HttpHeaders.AUTHORIZATION, bearer))
+                .andExpect(status().isAccepted());
+        confirmDeletion(tokenFromDeletionEmail())
+                .andExpect(status().isNoContent());
+    }
+
+    private ResultActions confirmDeletion(String token) throws Exception {
+        return mockMvc.perform(post(USERS_URL + "/me/delete/confirm")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"token\": \"%s\"}".formatted(token)));
+    }
+
+    private String tokenFromDeletionEmail() {
+        return tokenFrom(latestNotification("CONFIRM_ACCOUNT_DELETION"), "http://localhost:4200/account/delete/confirm?token=");
+    }
+
+    private ResultActions confirmEmailChange(String token) throws Exception {
+        return mockMvc.perform(post(USERS_URL + "/me/email/confirm")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"token\": \"%s\"}".formatted(token)));
+    }
+
+    private JsonNode latestNotification(String type) {
+        return outboxMessageRepository.findAll().stream()
+                .filter(message -> message.getTopic().equals("notifications"))
+                .map(message -> jsonMapper.readTree(message.getPayload()))
+                .filter(json -> json.get("type").asString().equals(type))
+                .reduce((first, second) -> second)
+                .orElseThrow();
+    }
+
+    private String tokenFrom(JsonNode notification, String expectedUrlPrefix) {
+        var confirmUrl = notification.get("payload").get("confirmUrl").asString();
+        assertThat(confirmUrl).startsWith(expectedUrlPrefix);
+        return UriComponentsBuilder.fromUriString(confirmUrl).build().getQueryParams().getFirst("token");
     }
 
     private String changePasswordJson(String currentPassword, String newPassword) {
