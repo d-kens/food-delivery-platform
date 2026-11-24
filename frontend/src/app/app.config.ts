@@ -24,7 +24,10 @@ export const appConfig: ApplicationConfig = {
       withInMemoryScrolling({ anchorScrolling: 'enabled', scrollPositionRestoration: 'enabled' }),
       withComponentInputBinding(),
     ),
-    provideHttpClient(withFetch(), withInterceptors([credentialsInterceptor, authRefreshInterceptor])),
+    provideHttpClient(
+      withFetch(),
+      withInterceptors([credentialsInterceptor, authRefreshInterceptor]),
+    ),
     provideAppInitializer(() => {
       inject(AuthService).restoreSession().subscribe();
     }),

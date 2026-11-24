@@ -2,8 +2,9 @@ package com.example.user_service.controller;
 
 import com.example.user_service.common.Role;
 import com.example.user_service.common.UserStatus;
+import com.example.user_service.dto.ChangeEmailRequestDto;
 import com.example.user_service.dto.ChangePasswordRequestDto;
-import com.example.user_service.dto.DeleteAccountRequestDto;
+import com.example.user_service.dto.ConfirmAccountActionRequestDto;
 import com.example.user_service.dto.PageResponseDto;
 import com.example.user_service.dto.UpdateUserRequestDto;
 import com.example.user_service.dto.UpdateUserRolesRequestDto;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -63,6 +65,20 @@ public class UserController {
         return userService.updateCurrentUser(UUID.fromString(jwt.getSubject()), request);
     }
 
+    @PostMapping("me/email")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void changeEmail(
+            @AuthenticationPrincipal final Jwt jwt,
+            @Valid @RequestBody final ChangeEmailRequestDto request) {
+        userService.requestEmailChange(UUID.fromString(jwt.getSubject()), request.newEmail());
+    }
+
+    @PostMapping("me/email/confirm")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void confirmEmailChange(@Valid @RequestBody final ConfirmAccountActionRequestDto request) {
+        userService.confirmEmailChange(request.token());
+    }
+
     @PatchMapping("me/password")
     public ResponseEntity<Void> changePassword(
             @AuthenticationPrincipal final Jwt jwt,
@@ -75,10 +91,14 @@ public class UserController {
     }
 
     @DeleteMapping("me")
-    public ResponseEntity<Void> deleteMe(
-            @AuthenticationPrincipal final Jwt jwt,
-            @Valid @RequestBody final DeleteAccountRequestDto request) {
-        userService.deleteCurrentUser(UUID.fromString(jwt.getSubject()), request);
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void deleteMe(@AuthenticationPrincipal final Jwt jwt) {
+        userService.requestAccountDeletion(UUID.fromString(jwt.getSubject()));
+    }
+
+    @PostMapping("me/delete/confirm")
+    public ResponseEntity<Void> confirmDeleteMe(@Valid @RequestBody final ConfirmAccountActionRequestDto request) {
+        userService.confirmAccountDeletion(request.token());
 
         return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE, authCookieService.clearedCookies())

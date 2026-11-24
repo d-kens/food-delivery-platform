@@ -1,0 +1,44 @@
+@if (changed()) {
+  <div class="grid size-12 place-items-center rounded-full bg-brand-100 text-brand-700">
+    <ng-icon name="heroCheckCircle" size="24" aria-hidden="true" />
+  </div>
+  <h1 class="mt-5 font-display text-3xl font-bold tracking-tight">Your email has been changed</h1>
+  <p class="mt-2 text-zinc-600" role="status">Use your new email to log in from now on.</p>
+  @if (auth.isLoggedIn()) {
+    <a routerLink="/account/profile" class="btn-primary mt-6">Go to your account</a>
+  } @else {
+    <a routerLink="/login" class="btn-primary mt-6">Log in</a>
+  }
+} @else if (linkInvalid()) {
+  <div class="grid size-12 place-items-center rounded-full bg-red-50 text-red-600">
+    <ng-icon name="heroLink" size="24" aria-hidden="true" />
+  </div>
+  <h1 class="mt-5 font-display text-3xl font-bold tracking-tight">
+    This link is invalid or has expired
+  </h1>
+  <p class="mt-2 text-zinc-600" role="alert">
+    Confirmation links work once and expire after 30 minutes. Your email has not been changed. To
+    try again, log in and go to Account → Profile.
+  </p>
+  <a routerLink="/account/profile" class="btn-primary mt-6">Go to your profile</a>
+} @else {
+  <div class="grid size-12 place-items-center rounded-full bg-brand-100 text-brand-700">
+    <ng-icon name="heroEnvelope" size="24" aria-hidden="true" />
+  </div>
+  <h1 class="mt-5 font-display text-3xl font-bold tracking-tight">Confirm your new email</h1>
+  <p class="mt-2 text-zinc-600">
+    Once confirmed, you'll log in and get account emails at your new address.
+  </p>
+
+  <div class="mt-6 space-y-3">
+    <app-form-alert [message]="formError()" />
+    <button type="button" class="btn-primary gap-2" [disabled]="submitting()" (click)="confirm()">
+      @if (submitting()) {
+        <app-spinner />
+        Confirming…
+      } @else {
+        Confirm email change
+      }
+    </button>
+  </div>
+}

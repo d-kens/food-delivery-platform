@@ -6,6 +6,8 @@ import com.example.notification_service.notification.NotificationType;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -42,6 +44,16 @@ class NotificationsListenerTest {
 
         verify(sender).send(new Notification("e1", NotificationType.UPDATED_PASSWORD, "u1",
                 Map.of("firstName", "Jane")));
+    }
+
+    @ParameterizedTest
+    @EnumSource(NotificationType.class)
+    void everyNotificationType_isAccepted(NotificationType type) {
+        receive("""
+                {"eventId":"e1","type":"%s","recipientId":"u1"}
+                """.formatted(type.name()));
+
+        verify(sender).send(new Notification("e1", type, "u1", Map.of()));
     }
 
     @Test

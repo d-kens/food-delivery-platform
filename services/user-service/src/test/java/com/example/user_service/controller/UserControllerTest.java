@@ -6,11 +6,11 @@ import com.example.user_service.config.SecurityConfig;
 import com.example.user_service.security.GoogleLoginFailureHandler;
 import com.example.user_service.security.GoogleLoginSuccessHandler;
 import com.example.user_service.dto.ChangePasswordRequestDto;
-import com.example.user_service.dto.DeleteAccountRequestDto;
 import com.example.user_service.dto.UpdateUserRequestDto;
 import com.example.user_service.dto.UserResponseDto;
 import com.example.user_service.security.AuthCookieService;
 import com.example.user_service.exception.EmailAlreadyExistsException;
+import com.example.user_service.exception.InvalidAccountActionTokenException;
 import com.example.user_service.exception.InvalidCurrentPasswordException;
 import com.example.user_service.exception.InvalidStatusChangeException;
 import com.example.user_service.exception.OwnRoleChangeException;
@@ -56,6 +56,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -270,7 +271,7 @@ class UserControllerTest {
     @Test
     void updateMe_returnsUpdatedUser() throws Exception {
         var id = UUID.randomUUID();
-        var request = new UpdateUserRequestDto("Janet", null, null, "+254707127309", null);
+        var request = new UpdateUserRequestDto("Janet", null, "+254707127309");
         when(userService.updateCurrentUser(id, request))
                 .thenReturn(new UserResponseDto(id.toString(), "Janet", "Doe", "jane.doe@gmail.com", List.of("USER"), null, UserStatus.ACTIVE));
 
@@ -286,39 +287,80 @@ class UserControllerTest {
     void updateMe_returnsBadRequest_whenFieldsInvalid() throws Exception {
         mockMvc.perform(patch(USERS_URL + "/me")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"firstName\": \"  \", \"email\": \"not-an-email\", \"phoneNumber\": \"12ab\"}")
+                        .content("{\"firstName\": \"  \", \"phoneNumber\": \"12ab\"}")
                         .with(user(UUID.randomUUID())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.firstName").exists())
-                .andExpect(jsonPath("$.errors.email").exists())
                 .andExpect(jsonPath("$.errors.phoneNumber").exists());
 
         verify(userService, never()).updateCurrentUser(any(), any());
     }
 
     @Test
-    void updateMe_returnsBadRequest_whenCurrentPasswordWrong() throws Exception {
-        when(userService.updateCurrentUser(any(), any()))
-                .thenThrow(new InvalidCurrentPasswordException("Current password is incorrect"));
+    void changeEmail_returnsAccepted_andRequestsConfirmation() throws Exception {
+        var id = UUID.randomUUID();
 
-        mockMvc.perform(patch(USERS_URL + "/me")
+        mockMvc.perform(post(USERS_URL + "/me/email")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\": \"janet@gmail.com\", \"currentPassword\": \"wrong\"}")
-                        .with(user(UUID.randomUUID())))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value("Current password is incorrect"));
+                        .content("{\"newEmail\": \"janet@gmail.com\"}")
+                        .with(user(id)))
+                .andExpect(status().isAccepted());
+
+        verify(userService).requestEmailChange(id, "janet@gmail.com");
     }
 
     @Test
-    void updateMe_returnsConflict_whenEmailTaken() throws Exception {
-        when(userService.updateCurrentUser(any(), any()))
-                .thenThrow(new EmailAlreadyExistsException());
-
-        mockMvc.perform(patch(USERS_URL + "/me")
+    void changeEmail_returnsBadRequest_whenEmailInvalid() throws Exception {
+        mockMvc.perform(post(USERS_URL + "/me/email")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\": \"taken@gmail.com\", \"currentPassword\": \"secret123\"}")
+                        .content("{\"newEmail\": \"not-an-email\"}")
+                        .with(user(UUID.randomUUID())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.newEmail").exists());
+
+        verify(userService, never()).requestEmailChange(any(), any());
+    }
+
+    @Test
+    void changeEmail_returnsConflict_whenEmailTaken() throws Exception {
+        doThrow(new EmailAlreadyExistsException()).when(userService).requestEmailChange(any(), any());
+
+        mockMvc.perform(post(USERS_URL + "/me/email")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"newEmail\": \"taken@gmail.com\"}")
                         .with(user(UUID.randomUUID())))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void changeEmail_returnsUnauthorized_withoutToken() throws Exception {
+        mockMvc.perform(post(USERS_URL + "/me/email")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"newEmail\": \"janet@gmail.com\"}"))
+                .andExpect(status().isUnauthorized());
+
+        verify(userService, never()).requestEmailChange(any(), any());
+    }
+
+    @Test
+    void confirmEmailChange_isPublic_andReturnsNoContent() throws Exception {
+        mockMvc.perform(post(USERS_URL + "/me/email/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\": \"raw-token\"}"))
+                .andExpect(status().isNoContent());
+
+        verify(userService).confirmEmailChange("raw-token");
+    }
+
+    @Test
+    void confirmEmailChange_returnsBadRequest_whenTokenInvalid() throws Exception {
+        doThrow(new InvalidAccountActionTokenException()).when(userService).confirmEmailChange("bad-token");
+
+        mockMvc.perform(post(USERS_URL + "/me/email/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\": \"bad-token\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("This link is invalid or has expired"));
     }
 
     @Test
@@ -424,55 +466,58 @@ class UserControllerTest {
     }
 
     @Test
-    void deleteMe_returnsNoContentAndClearsAuthCookies() throws Exception {
+    void deleteMe_returnsAccepted_andRequestsConfirmationEmail() throws Exception {
         var id = UUID.randomUUID();
 
-        mockMvc.perform(delete(USERS_URL + "/me")
+        mockMvc.perform(delete(USERS_URL + "/me").with(user(id)))
+                .andExpect(status().isAccepted())
+                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
+
+        verify(userService).requestAccountDeletion(id);
+    }
+
+    @Test
+    void deleteMe_returnsUnauthorized_withoutToken() throws Exception {
+        mockMvc.perform(delete(USERS_URL + "/me"))
+                .andExpect(status().isUnauthorized());
+
+        verify(userService, never()).requestAccountDeletion(any());
+    }
+
+    @Test
+    void confirmDeleteMe_isPublic_returnsNoContentAndClearsAuthCookies() throws Exception {
+        mockMvc.perform(post(USERS_URL + "/me/delete/confirm")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"currentPassword\": \"OldPassw0rd!\"}")
-                        .with(user(id)))
+                        .content("{\"token\": \"raw-token\"}"))
                 .andExpect(status().isNoContent())
                 .andExpect(header().stringValues(HttpHeaders.SET_COOKIE, hasItems(
                         allOf(startsWith("access_token="), containsString("Max-Age=0")),
                         allOf(startsWith("refresh_token="), containsString("Max-Age=0")))));
 
-        verify(userService).deleteCurrentUser(id, new DeleteAccountRequestDto("OldPassw0rd!"));
+        verify(userService).confirmAccountDeletion("raw-token");
     }
 
     @Test
-    void deleteMe_returnsBadRequest_whenCurrentPasswordWrong() throws Exception {
-        doThrow(new InvalidCurrentPasswordException("Current password is incorrect"))
-                .when(userService).deleteCurrentUser(any(), any());
+    void confirmDeleteMe_returnsBadRequest_whenTokenInvalid() throws Exception {
+        doThrow(new InvalidAccountActionTokenException()).when(userService).confirmAccountDeletion("bad-token");
 
-        mockMvc.perform(delete(USERS_URL + "/me")
+        mockMvc.perform(post(USERS_URL + "/me/delete/confirm")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"currentPassword\": \"wrong\"}")
-                        .with(user(UUID.randomUUID())))
+                        .content("{\"token\": \"bad-token\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value("Current password is incorrect"))
+                .andExpect(jsonPath("$.detail").value("This link is invalid or has expired"))
                 .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
     }
 
     @Test
-    void deleteMe_returnsBadRequest_whenCurrentPasswordMissing() throws Exception {
-        mockMvc.perform(delete(USERS_URL + "/me")
+    void confirmDeleteMe_returnsBadRequest_whenTokenMissing() throws Exception {
+        mockMvc.perform(post(USERS_URL + "/me/delete/confirm")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}")
-                        .with(user(UUID.randomUUID())))
+                        .content("{}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errors.currentPassword").exists());
+                .andExpect(jsonPath("$.errors.token").exists());
 
-        verify(userService, never()).deleteCurrentUser(any(), any());
-    }
-
-    @Test
-    void deleteMe_returnsUnauthorized_withoutToken() throws Exception {
-        mockMvc.perform(delete(USERS_URL + "/me")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"currentPassword\": \"OldPassw0rd!\"}"))
-                .andExpect(status().isUnauthorized());
-
-        verify(userService, never()).deleteCurrentUser(any(), any());
+        verify(userService, never()).confirmAccountDeletion(any());
     }
 
     @Test

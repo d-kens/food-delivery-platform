@@ -55,6 +55,12 @@ security:
     cookie-secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}
     cookie-path: ${REFRESH_TOKEN_COOKIE_PATH:/api/user-service/auth}
 
+  account-action:
+    ttl: ${ACCOUNT_ACTION_TTL:30m}
+    request-interval: ${ACCOUNT_ACTION_REQUEST_INTERVAL:1m}
+    delete-confirm-url: ${ACCOUNT_DELETE_CONFIRM_URL:http://localhost:4200/account/delete/confirm}
+    email-confirm-url: ${ACCOUNT_EMAIL_CONFIRM_URL:http://localhost:4200/account/email/confirm}
+
   google:
     success-url: ${GOOGLE_SUCCESS_URL:http://localhost:4200/}
     failure-url: ${GOOGLE_FAILURE_URL:http://localhost:4200/login?error=google}

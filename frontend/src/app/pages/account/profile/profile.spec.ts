@@ -46,9 +46,9 @@ describe('Profile', () => {
   it('should prefill the form with the current user', () => {
     expect(input('firstName')!.value).toBe('Jane');
     expect(input('lastName')!.value).toBe('Doe');
-    expect(input('email')!.value).toBe('jane.doe@gmail.com');
     expect(input('phoneNumber')!.value).toBe('+254707127309');
-    expect(input('currentPassword')).toBeNull();
+    expect(input('email')).toBeNull();
+    expect(compiled.querySelector('app-change-email')).not.toBeNull();
   });
 
   it('should enable saving only when something changed, and discard edits', async () => {
@@ -83,24 +83,6 @@ describe('Profile', () => {
     expect(TestBed.inject(AuthService).user()?.firstName).toBe('Janet');
   });
 
-  it('should ask for the current password only when the email changes', async () => {
-    await type('email', 'janet@gmail.com');
-    expect(input('currentPassword')).not.toBeNull();
-
-    await submit();
-    expect(message('currentPassword').textContent).toContain(
-      'Enter your current password to change your email',
-    );
-    http.expectNone('/api/user-service/users/me');
-
-    await type('currentPassword', 'OldPassw0rd!');
-    await submit();
-    expect(http.expectOne('/api/user-service/users/me').request.body).toEqual({
-      email: 'janet@gmail.com',
-      currentPassword: 'OldPassw0rd!',
-    });
-  });
-
   it('should validate the phone number', async () => {
     await type('phoneNumber', '12ab');
 
@@ -122,22 +104,5 @@ describe('Profile', () => {
 
     expect(alert()?.textContent).toContain('An account with this phone number already exists');
     expect(input('phoneNumber')!.getAttribute('aria-invalid')).toBe('true');
-  });
-
-  it('should show a wrong current password above the button and flag that field', async () => {
-    await type('email', 'janet@gmail.com');
-    await type('currentPassword', 'wrong');
-    await submit();
-
-    http
-      .expectOne('/api/user-service/users/me')
-      .flush(
-        { detail: 'Current password is incorrect' },
-        { status: 400, statusText: 'Bad Request' },
-      );
-    await fixture.whenStable();
-
-    expect(alert()?.textContent).toContain('Current password is incorrect');
-    expect(input('currentPassword')!.getAttribute('aria-invalid')).toBe('true');
   });
 });

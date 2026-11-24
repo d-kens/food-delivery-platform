@@ -1,13 +1,14 @@
 package com.example.user_service.service;
 
+import com.example.user_service.common.AccountActionPurpose;
 import com.example.user_service.common.Emails;
 import com.example.user_service.common.Role;
 import com.example.user_service.common.UserStatus;
 import com.example.user_service.dto.ChangePasswordRequestDto;
-import com.example.user_service.dto.DeleteAccountRequestDto;
 import com.example.user_service.dto.PageResponseDto;
 import com.example.user_service.dto.UpdateUserRequestDto;
 import com.example.user_service.dto.UserResponseDto;
+import com.example.user_service.config.AccountActionProperties;
 import com.example.user_service.entity.User;
 import com.example.user_service.event.NotificationEvent;
 import com.example.user_service.event.UserEvent;
@@ -32,6 +33,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.Instant;
 import java.util.Set;
@@ -51,6 +53,8 @@ public class UserService {
     private final RefreshTokenService refreshTokenService;
     private final OutboxService outboxService;
     private final UserExternalIdentityRepository userExternalIdentityRepository;
+    private final AccountActionTokenService accountActionTokenService;
+    private final AccountActionProperties accountActionProperties;
 
     @Transactional(readOnly = true)
     public UserResponseDto getCurrentUser(final UUID userId) {
@@ -61,12 +65,6 @@ public class UserService {
     public UserResponseDto updateCurrentUser(final UUID userId, final UpdateUserRequestDto request) {
         var user = findActiveUser(userId);
         var changed = false;
-
-        var email = Emails.normalize(request.email());
-        if (email != null && !email.equals(user.getEmail())) {
-            changeEmail(user, email, request.currentPassword());
-            changed = true;
-        }
 
         if (request.phoneNumber() != null && !request.phoneNumber().equals(user.getPhoneNumber())) {
             if (userRepository.existsByPhoneNumber(request.phoneNumber())) {
@@ -166,12 +164,57 @@ public class UserService {
     }
 
     @Transactional
-    public void deleteCurrentUser(final UUID userId, final DeleteAccountRequestDto request) {
+    public void requestEmailChange(final UUID userId, final String newEmail) {
+        var user = findActiveUser(userId);
+        var email = Emails.normalize(newEmail);
+
+        if (email.equals(user.getEmail())) {
+            return;
+        }
+
+        if (userRepository.existsByEmail(email)) {
+            throw new EmailAlreadyExistsException();
+        }
+
+        accountActionTokenService.create(user, AccountActionPurpose.CHANGE_EMAIL, email).ifPresent(rawToken -> {
+            var confirmUrl = UriComponentsBuilder.fromUriString(accountActionProperties.emailConfirmUrl())
+                    .queryParam("token", rawToken)
+                    .toUriString();
+            outboxService.saveNotification(NotificationEvent.confirmEmailChange(
+                    user, email, confirmUrl, accountActionProperties.ttl().toMinutes()));
+        });
+    }
+
+    @Transactional
+    public void confirmEmailChange(final String rawToken) {
+        var token = accountActionTokenService.consume(rawToken, AccountActionPurpose.CHANGE_EMAIL);
+        var user = token.getUser();
+
+        if (userRepository.existsByEmail(token.getNewEmail())) {
+            throw new EmailAlreadyExistsException();
+        }
+
+        user.setEmail(token.getNewEmail());
+        outboxService.saveUserEvent(UserEvent.updated(user));
+    }
+
+    @Transactional
+    public void requestAccountDeletion(final UUID userId) {
         var user = findActiveUser(userId);
 
-        if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
-            throw new InvalidCurrentPasswordException("Current password is incorrect");
-        }
+        accountActionTokenService.create(user, AccountActionPurpose.DELETE_ACCOUNT, null).ifPresent(rawToken -> {
+            var confirmUrl = UriComponentsBuilder.fromUriString(accountActionProperties.deleteConfirmUrl())
+                    .queryParam("token", rawToken)
+                    .toUriString();
+            outboxService.saveNotification(NotificationEvent.confirmAccountDeletion(
+                    user, confirmUrl, accountActionProperties.ttl().toMinutes()));
+        });
+    }
+
+    @Transactional
+    public void confirmAccountDeletion(final String rawToken) {
+        var user = accountActionTokenService.consume(rawToken, AccountActionPurpose.DELETE_ACCOUNT).getUser();
+        var userId = user.getId();
 
         user.setEmail("deleted-" + userId + "@deleted.invalid");
         user.setPhoneNumber(null);
@@ -210,19 +253,4 @@ public class UserService {
         return user;
     }
 
-    private void changeEmail(final User user, final String newEmail, final String currentPassword) {
-        if (currentPassword == null || currentPassword.isBlank()) {
-            throw new InvalidCurrentPasswordException("Current password is required to change your email");
-        }
-
-        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
-            throw new InvalidCurrentPasswordException("Current password is incorrect");
-        }
-
-        if (userRepository.existsByEmail(newEmail)) {
-            throw new EmailAlreadyExistsException();
-        }
-
-        user.setEmail(newEmail);
-    }
 }

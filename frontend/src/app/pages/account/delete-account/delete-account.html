@@ -18,6 +18,24 @@
           Delete account
         </button>
       </div>
+    } @else if (sentTo(); as email) {
+      <div class="flex gap-4 p-6">
+        <div
+          class="grid size-10 shrink-0 place-items-center rounded-full bg-brand-100 text-brand-700"
+        >
+          <ng-icon name="heroEnvelope" size="20" aria-hidden="true" />
+        </div>
+        <div role="status">
+          <p class="font-semibold text-zinc-900">Check your email</p>
+          <p class="mt-1 text-sm text-zinc-600">
+            We've sent a link to <span class="font-semibold text-zinc-900">{{ email }}</span
+            >. Your account isn't deleted until you click it. The link expires in 30 minutes.
+          </p>
+        </div>
+      </div>
+      <div class="flex justify-end border-t border-zinc-100 px-6 py-4">
+        <button type="button" class="btn-secondary" (click)="cancel()">Done</button>
+      </div>
     } @else {
       <form id="delete-account-form" [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
         <div class="space-y-5 p-6">
@@ -39,35 +57,23 @@
             </div>
           </div>
 
-          <div class="space-y-1">
-            <div>
-              <label for="deletePassword" class="form-label">Current password</label>
-              <input
-                id="deletePassword"
-                type="password"
-                formControlName="deletePassword"
-                autocomplete="current-password"
-                class="form-input"
-                aria-describedby="deletePassword-message"
-                [attr.aria-invalid]="passwordMessage() || passwordRejected() ? true : null"
-              />
-              <app-field-message fieldId="deletePassword" [error]="passwordMessage()" />
-            </div>
+          <p class="text-sm text-zinc-600">
+            We'll email you a link to confirm. Nothing is deleted until you click it.
+          </p>
 
-            <div>
-              <label class="flex items-start gap-3 text-sm text-zinc-800">
-                <input
-                  id="confirm"
-                  type="checkbox"
-                  formControlName="confirm"
-                  class="mt-0.5 size-4 shrink-0 accent-red-600"
-                  aria-describedby="confirm-message"
-                  [attr.aria-invalid]="confirmMessage() ? true : null"
-                />
-                I understand my account will be permanently deleted.
-              </label>
-              <app-field-message fieldId="confirm" [error]="confirmMessage()" />
-            </div>
+          <div>
+            <label class="flex items-start gap-3 text-sm text-zinc-800">
+              <input
+                id="confirm"
+                type="checkbox"
+                formControlName="confirm"
+                class="mt-0.5 size-4 shrink-0 accent-red-600"
+                aria-describedby="confirm-message"
+                [attr.aria-invalid]="confirmMessage() ? true : null"
+              />
+              I understand my account will be permanently deleted.
+            </label>
+            <app-field-message fieldId="confirm" [error]="confirmMessage()" />
           </div>
 
           <app-form-alert [message]="formError()" />
@@ -80,9 +86,9 @@
           <button type="submit" class="btn-danger" [disabled]="submitting()">
             @if (submitting()) {
               <app-spinner />
-              Deleting account…
+              Sending link…
             } @else {
-              Delete my account
+              Email me a confirmation link
             }
           </button>
         </div>

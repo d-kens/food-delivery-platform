@@ -63,16 +63,61 @@ describe('UsersService', () => {
     expect(auth.isLoggedIn()).toBe(true);
   });
 
-  it('should delete the account with the password in the body and end the session', async () => {
-    const result = firstValueFrom(users.deleteAccount('OldPassw0rd!'));
+  it('should request account deletion without a body and keep the session', async () => {
+    const result = firstValueFrom(users.requestAccountDeletion());
 
     const request = http.expectOne('/api/user-service/users/me');
     expect(request.request.method).toBe('DELETE');
-    expect(request.request.body).toEqual({ currentPassword: 'OldPassw0rd!' });
+    expect(request.request.body).toBeNull();
+    request.flush(null, { status: 202, statusText: 'Accepted' });
+
+    await result;
+    expect(auth.isLoggedIn()).toBe(true);
+  });
+
+  it('should confirm account deletion with the token and end the session', async () => {
+    const result = firstValueFrom(users.confirmAccountDeletion('raw-token'));
+
+    const request = http.expectOne('/api/user-service/users/me/delete/confirm');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ token: 'raw-token' });
     request.flush(null, { status: 204, statusText: 'No Content' });
 
     await result;
     expect(auth.isLoggedIn()).toBe(false);
+  });
+
+  it('should request an email change', () => {
+    users.requestEmailChange('janet@gmail.com').subscribe();
+
+    const request = http.expectOne('/api/user-service/users/me/email');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ newEmail: 'janet@gmail.com' });
+    request.flush(null, { status: 202, statusText: 'Accepted' });
+  });
+
+  it('should confirm an email change and reload the logged-in user', async () => {
+    const result = firstValueFrom(users.confirmEmailChange('raw-token'));
+
+    const confirm = http.expectOne('/api/user-service/users/me/email/confirm');
+    expect(confirm.request.body).toEqual({ token: 'raw-token' });
+    confirm.flush(null, { status: 204, statusText: 'No Content' });
+    http.expectOne('/api/user-service/users/me').flush(userResponse({ email: 'janet@gmail.com' }));
+
+    await result;
+    expect(auth.user()?.email).toBe('janet@gmail.com');
+  });
+
+  it('should confirm an email change without loading a user when logged out', async () => {
+    auth.clearSession();
+    const result = firstValueFrom(users.confirmEmailChange('raw-token'));
+
+    http
+      .expectOne('/api/user-service/users/me/email/confirm')
+      .flush(null, { status: 204, statusText: 'No Content' });
+
+    await result;
+    http.expectNone('/api/user-service/users/me');
   });
 
   it('should only send the filters that are set when listing users', () => {

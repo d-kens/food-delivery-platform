@@ -38,6 +38,8 @@ public class SecurityConfig {
             PATHS.matcher(HttpMethod.POST, "/auth/logout"),
             PATHS.matcher(HttpMethod.POST, "/auth/forgot-password"),
             PATHS.matcher(HttpMethod.POST, "/auth/reset-password"),
+            PATHS.matcher(HttpMethod.POST, "/users/me/delete/confirm"),
+            PATHS.matcher(HttpMethod.POST, "/users/me/email/confirm"),
             PATHS.matcher(HttpMethod.GET, "/.well-known/jwks.json")
     );
 
