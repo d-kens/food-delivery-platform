@@ -18,6 +18,7 @@ import com.example.user_service.exception.InvalidStatusChangeException;
 import com.example.user_service.exception.OwnRoleChangeException;
 import com.example.user_service.exception.OwnStatusChangeException;
 import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
+import com.example.user_service.exception.PasswordNotSetException;
 import com.example.user_service.exception.UserDeletedException;
 import com.example.user_service.exception.UserNotFoundException;
 import com.example.user_service.exception.UserSuspendedException;
@@ -95,6 +96,10 @@ public class UserService {
     @Transactional
     public void changePassword(final UUID userId, final ChangePasswordRequestDto request) {
         var user = findActiveUser(userId);
+
+        if (user.getPasswordHash() == null) {
+            throw new PasswordNotSetException();
+        }
 
         if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
             throw new InvalidCurrentPasswordException("Current password is incorrect");

@@ -12,6 +12,7 @@ import com.example.user_service.event.UserEvent;
 import com.example.user_service.exception.AccountNotFoundException;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.InvalidCurrentPasswordException;
+import com.example.user_service.exception.PasswordNotSetException;
 import com.example.user_service.exception.InvalidStatusChangeException;
 import com.example.user_service.exception.OwnRoleChangeException;
 import com.example.user_service.exception.OwnStatusChangeException;
@@ -499,6 +500,23 @@ class UserServiceTest {
                 .hasMessage("Current password is incorrect");
 
         assertThat(user.getPasswordHash()).isEqualTo("hashed");
+        verify(passwordEncoder, never()).encode(anyString());
+        verify(refreshTokenService, never()).revokeAllFor(any());
+        verify(outboxService, never()).saveNotification(any());
+    }
+
+    @Test
+    void changePassword_throws_andChangesNothing_whenUserHasNoPassword() {
+        var user = user(UserStatus.ACTIVE);
+        user.setPasswordHash(null);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> userService.changePassword(USER_ID,
+                new ChangePasswordRequestDto("anything", "NewPassw0rd!")))
+                .isInstanceOf(PasswordNotSetException.class)
+                .hasMessage("You don't have a password yet. Use 'Forgot password' to set one.");
+
+        assertThat(user.getPasswordHash()).isNull();
         verify(passwordEncoder, never()).encode(anyString());
         verify(refreshTokenService, never()).revokeAllFor(any());
         verify(outboxService, never()).saveNotification(any());

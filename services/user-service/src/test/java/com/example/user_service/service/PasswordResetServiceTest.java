@@ -149,6 +149,30 @@ class PasswordResetServiceTest {
     }
 
     @Test
+    void requestReset_queuesResetEmail_whenUserHasNoPassword() {
+        user.setPasswordHash(null);
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(user));
+
+        service.requestReset(EMAIL);
+
+        verify(tokenRepository).save(any(PasswordResetToken.class));
+        verify(outboxService).saveNotification(any(NotificationEvent.class));
+    }
+
+    @Test
+    void resetPassword_setsFirstPassword_whenUserHasNoPassword() {
+        user.setPasswordHash(null);
+        var token = token(Instant.now().plusSeconds(600), null);
+        when(tokenRepository.findByTokenHash("hashed-token")).thenReturn(Optional.of(token));
+        when(passwordEncoder.encode("NewPassw0rd!")).thenReturn("new-hash");
+
+        service.resetPassword("raw-token", "NewPassw0rd!");
+
+        assertThat(user.getPasswordHash()).isEqualTo("new-hash");
+        assertThat(token.getUsedAt()).isNotNull();
+    }
+
+    @Test
     void resetPassword_rejectsUnknownToken() {
         when(tokenRepository.findByTokenHash("hashed-token")).thenReturn(Optional.empty());
 
