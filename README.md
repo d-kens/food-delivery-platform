@@ -21,12 +21,14 @@ Postgres, Kafka and the Tyk gateway run in Docker. The services and the frontend
 ## How requests flow
 
 ```
-browser → ng serve (/api) → Tyk :8080 → user-service :9001
+browser (app on :4200) → Tyk :8080/api → user-service :9001
 ```
 
 - Every browser request goes through Tyk. Tyk copies the `access_token` cookie into the `Authorization: Bearer` header.
 - Services only read the `Authorization` header, so calling a service directly needs a bearer token (e.g. from Postman).
+- The app calls Tyk directly (`http://localhost:8080/api`), so Tyk allows CORS from `http://localhost:4200`.
 - Each service has its own gateway prefix, e.g. `/api/user-service/`.
+- CORS is set per Tyk API: copy the `CORS` block from `tyk-gateway/apps/user-service.json` into every new service's file.
 - After changing Tyk config, run `docker compose up -d tyk-gateway`.
 
 ## Ports
