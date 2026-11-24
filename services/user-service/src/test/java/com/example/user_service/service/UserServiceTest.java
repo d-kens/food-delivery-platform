@@ -12,6 +12,7 @@ import com.example.user_service.event.UserEvent;
 import com.example.user_service.exception.AccountNotFoundException;
 import com.example.user_service.exception.EmailAlreadyExistsException;
 import com.example.user_service.exception.InvalidCurrentPasswordException;
+import com.example.user_service.exception.PasswordNotSetException;
 import com.example.user_service.exception.InvalidStatusChangeException;
 import com.example.user_service.exception.OwnRoleChangeException;
 import com.example.user_service.exception.OwnStatusChangeException;
@@ -20,6 +21,7 @@ import com.example.user_service.exception.UserDeletedException;
 import com.example.user_service.exception.UserNotFoundException;
 import com.example.user_service.exception.UserSuspendedException;
 import com.example.user_service.outbox.OutboxService;
+import com.example.user_service.repository.UserExternalIdentityRepository;
 import com.example.user_service.repository.UserRepository;
 import com.example.user_service.service.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
@@ -58,6 +60,7 @@ class UserServiceTest {
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private RefreshTokenService refreshTokenService;
     @Mock private OutboxService outboxService;
+    @Mock private UserExternalIdentityRepository userExternalIdentityRepository;
 
     @InjectMocks private UserService userService;
 
@@ -371,6 +374,7 @@ class UserServiceTest {
         assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
         assertThat(user.getDeletedAt()).isNotNull();
         verify(refreshTokenService).revokeAllFor(USER_ID);
+        verify(userExternalIdentityRepository).deleteAllByUserId(USER_ID);
     }
 
     @Test
@@ -496,6 +500,23 @@ class UserServiceTest {
                 .hasMessage("Current password is incorrect");
 
         assertThat(user.getPasswordHash()).isEqualTo("hashed");
+        verify(passwordEncoder, never()).encode(anyString());
+        verify(refreshTokenService, never()).revokeAllFor(any());
+        verify(outboxService, never()).saveNotification(any());
+    }
+
+    @Test
+    void changePassword_throws_andChangesNothing_whenUserHasNoPassword() {
+        var user = user(UserStatus.ACTIVE);
+        user.setPasswordHash(null);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> userService.changePassword(USER_ID,
+                new ChangePasswordRequestDto("anything", "NewPassw0rd!")))
+                .isInstanceOf(PasswordNotSetException.class)
+                .hasMessage("You don't have a password yet. Use 'Forgot password' to set one.");
+
+        assertThat(user.getPasswordHash()).isNull();
         verify(passwordEncoder, never()).encode(anyString());
         verify(refreshTokenService, never()).revokeAllFor(any());
         verify(outboxService, never()).saveNotification(any());

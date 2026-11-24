@@ -11,6 +11,7 @@ import { provideNgIconsConfig } from '@ng-icons/core';
 import { routes } from './app.routes';
 import { authRefreshInterceptor } from './core/auth/auth-refresh.interceptor';
 import { AuthService } from './core/auth/auth.service';
+import { credentialsInterceptor } from './core/http/credentials.interceptor';
 
 const unsplashLoader = ({ src, width }: ImageLoaderConfig) =>
   `https://images.unsplash.com/${src}?auto=format&fit=crop&q=75${width ? `&w=${width}` : ''}`;
@@ -23,7 +24,7 @@ export const appConfig: ApplicationConfig = {
       withInMemoryScrolling({ anchorScrolling: 'enabled', scrollPositionRestoration: 'enabled' }),
       withComponentInputBinding(),
     ),
-    provideHttpClient(withFetch(), withInterceptors([authRefreshInterceptor])),
+    provideHttpClient(withFetch(), withInterceptors([credentialsInterceptor, authRefreshInterceptor])),
     provideAppInitializer(() => {
       inject(AuthService).restoreSession().subscribe();
     }),

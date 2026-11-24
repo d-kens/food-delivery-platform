@@ -9,6 +9,8 @@ import com.example.user_service.exception.InvalidCredentialException;
 import com.example.user_service.exception.InvalidRefreshTokenException;
 import com.example.user_service.exception.UserSuspendedException;
 import com.example.user_service.config.SecurityConfig;
+import com.example.user_service.security.GoogleLoginFailureHandler;
+import com.example.user_service.security.GoogleLoginSuccessHandler;
 import com.example.user_service.security.AuthCookieService;
 import com.example.user_service.service.AuthenticationService;
 import com.example.user_service.service.LoginResult;
@@ -77,6 +79,12 @@ class AuthenticationControllerTest {
     // Required by the resource server config in SecurityConfig; not loaded by @WebMvcTest.
     @MockitoBean
     private JwtDecoder jwtDecoder;
+
+    @MockitoBean
+    private GoogleLoginSuccessHandler googleLoginSuccessHandler;
+
+    @MockitoBean
+    private GoogleLoginFailureHandler googleLoginFailureHandler;
 
     @MockitoBean
     private AuthCookieService authCookieService;

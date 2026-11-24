@@ -8,7 +8,10 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NON_TEST)
 @TestPropertySource(properties = {
         "outbox.relay.enabled=false",
-        "spring.kafka.admin.auto-create=false"
+        "spring.kafka.admin.auto-create=false",
+        "spring.security.oauth2.client.registration.google.client-id=test",
+        "spring.security.oauth2.client.registration.google.client-secret=test",
+        "spring.security.oauth2.client.registration.google.redirect-uri=http://localhost/login/oauth2/code/google"
 })
 public abstract class AbstractIntegrationTest {
 

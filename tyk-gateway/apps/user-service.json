@@ -27,6 +27,15 @@
       }
     ]
   },
+  "CORS": {
+    "enable": true,
+    "allowed_origins": ["http://localhost:4200"],
+    "allowed_methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    "allowed_headers": ["Content-Type", "Authorization"],
+    "allow_credentials": true,
+    "max_age": 600,
+    "options_passthrough": false
+  },
   "proxy": {
     "listen_path": "/api/user-service/",
     "target_url": "http://host.docker.internal:9001/",

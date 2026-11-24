@@ -1,6 +1,8 @@
 package com.example.user_service.controller;
 
 import com.example.user_service.config.SecurityConfig;
+import com.example.user_service.security.GoogleLoginFailureHandler;
+import com.example.user_service.security.GoogleLoginSuccessHandler;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.KeyUse;
@@ -43,6 +45,12 @@ class JwksControllerTest {
 
     @MockitoBean
     private JwtDecoder jwtDecoder;
+
+    @MockitoBean
+    private GoogleLoginSuccessHandler googleLoginSuccessHandler;
+
+    @MockitoBean
+    private GoogleLoginFailureHandler googleLoginFailureHandler;
 
     @Test
     void jwks_returnsOk_withoutToken() throws Exception {

@@ -3,6 +3,8 @@ package com.example.user_service.controller;
 import com.example.user_service.common.Role;
 import com.example.user_service.common.UserStatus;
 import com.example.user_service.config.SecurityConfig;
+import com.example.user_service.security.GoogleLoginFailureHandler;
+import com.example.user_service.security.GoogleLoginSuccessHandler;
 import com.example.user_service.dto.ChangePasswordRequestDto;
 import com.example.user_service.dto.DeleteAccountRequestDto;
 import com.example.user_service.dto.UpdateUserRequestDto;
@@ -72,6 +74,12 @@ class UserControllerTest {
 
     @MockitoBean
     private JwtDecoder jwtDecoder;
+
+    @MockitoBean
+    private GoogleLoginSuccessHandler googleLoginSuccessHandler;
+
+    @MockitoBean
+    private GoogleLoginFailureHandler googleLoginFailureHandler;
 
     @MockitoBean
     private AuthCookieService authCookieService;

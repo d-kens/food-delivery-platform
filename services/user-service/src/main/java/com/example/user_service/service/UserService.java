@@ -18,10 +18,12 @@ import com.example.user_service.exception.InvalidStatusChangeException;
 import com.example.user_service.exception.OwnRoleChangeException;
 import com.example.user_service.exception.OwnStatusChangeException;
 import com.example.user_service.exception.PhoneNumberAlreadyExistsException;
+import com.example.user_service.exception.PasswordNotSetException;
 import com.example.user_service.exception.UserDeletedException;
 import com.example.user_service.exception.UserNotFoundException;
 import com.example.user_service.exception.UserSuspendedException;
 import com.example.user_service.outbox.OutboxService;
+import com.example.user_service.repository.UserExternalIdentityRepository;
 import com.example.user_service.repository.UserRepository;
 import com.example.user_service.service.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +50,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenService refreshTokenService;
     private final OutboxService outboxService;
+    private final UserExternalIdentityRepository userExternalIdentityRepository;
 
     @Transactional(readOnly = true)
     public UserResponseDto getCurrentUser(final UUID userId) {
@@ -93,6 +96,10 @@ public class UserService {
     @Transactional
     public void changePassword(final UUID userId, final ChangePasswordRequestDto request) {
         var user = findActiveUser(userId);
+
+        if (user.getPasswordHash() == null) {
+            throw new PasswordNotSetException();
+        }
 
         if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
             throw new InvalidCurrentPasswordException("Current password is incorrect");
@@ -176,6 +183,7 @@ public class UserService {
         user.setDeletedAt(Instant.now());
 
         refreshTokenService.revokeAllFor(userId);
+        userExternalIdentityRepository.deleteAllByUserId(userId);
         outboxService.saveUserEvent(UserEvent.deleted(userId));
     }
 

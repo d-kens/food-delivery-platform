@@ -19,6 +19,16 @@ spring:
         max.block.ms: 5000
         request.timeout.ms: 5000
         delivery.timeout.ms: 10000
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope: openid, email, profile
+            redirect-uri: ${GOOGLE_REDIRECT_URI}
+
 
 kafka:
   topics:
@@ -44,3 +54,7 @@ security:
     ttl: ${REFRESH_TOKEN_TTL:7d}
     cookie-secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}
     cookie-path: ${REFRESH_TOKEN_COOKIE_PATH:/api/user-service/auth}
+
+  google:
+    success-url: ${GOOGLE_SUCCESS_URL:http://localhost:4200/}
+    failure-url: ${GOOGLE_FAILURE_URL:http://localhost:4200/login?error=google}
