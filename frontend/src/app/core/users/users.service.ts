@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map, tap } from 'rxjs';
+import { Observable, map, of, switchMap, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Role, UserResponse, UserStatus } from '../auth/auth.models';
 import { AuthService } from '../auth/auth.service';
@@ -27,8 +27,23 @@ export class UsersService {
       );
   }
 
-  deleteAccount(currentPassword: string): Observable<void> {
-    return this.http.delete<void>(`${this.usersUrl}/me`, { body: { currentPassword } }).pipe(
+  requestEmailChange(newEmail: string): Observable<void> {
+    return this.http.post<void>(`${this.usersUrl}/me/email`, { newEmail });
+  }
+
+  confirmEmailChange(token: string): Observable<void> {
+    return this.http.post<void>(`${this.usersUrl}/me/email/confirm`, { token }).pipe(
+      switchMap(() => (this.auth.isLoggedIn() ? this.auth.restoreSession() : of(null))),
+      map(() => undefined),
+    );
+  }
+
+  requestAccountDeletion(): Observable<void> {
+    return this.http.delete<void>(`${this.usersUrl}/me`);
+  }
+
+  confirmAccountDeletion(token: string): Observable<void> {
+    return this.http.post<void>(`${this.usersUrl}/me/delete/confirm`, { token }).pipe(
       tap(() => this.auth.clearSession()),
       map(() => undefined),
     );

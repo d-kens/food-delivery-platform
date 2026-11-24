@@ -1,7 +1,7 @@
 import { Component, DestroyRef, ElementRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { finalize, map, startWith } from 'rxjs';
+import { finalize } from 'rxjs';
 import { UserResponse } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
 import { genericErrorMessage, problemOf, statusOf } from '../../../core/http/problem-detail';
@@ -13,14 +13,15 @@ import { focusFirstInvalid, notBlank, shouldShowError } from '../../../shared/fo
 import { SettingsSection } from '../../../shared/settings-section/settings-section';
 import { Spinner } from '../../../shared/spinner/spinner';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ChangeEmail } from '../change-email/change-email';
 
-type Field = 'firstName' | 'lastName' | 'email' | 'phoneNumber' | 'currentPassword';
+type Field = 'firstName' | 'lastName' | 'phoneNumber';
 
 const PHONE_PATTERN = /^\+?[0-9]{7,15}$/;
 
 @Component({
   selector: 'app-profile',
-  imports: [ReactiveFormsModule, FieldMessage, FormAlert, SettingsSection, Spinner],
+  imports: [ReactiveFormsModule, FieldMessage, FormAlert, SettingsSection, Spinner, ChangeEmail],
   templateUrl: './profile.html',
 })
 export class Profile {
@@ -38,18 +39,8 @@ export class Profile {
   protected readonly form = this.fb.group({
     firstName: ['', [notBlank, Validators.maxLength(100)]],
     lastName: ['', [notBlank, Validators.maxLength(100)]],
-    email: ['', [notBlank, Validators.email, Validators.maxLength(255)]],
     phoneNumber: ['', Validators.pattern(PHONE_PATTERN)],
-    currentPassword: [''],
   });
-
-  private readonly email = toSignal(
-    this.form.controls.email.valueChanges.pipe(
-      startWith(this.form.controls.email.value),
-      map((value) => value.trim()),
-    ),
-    { requireSync: true },
-  );
 
   private readonly formValue = toSignal(this.form.valueChanges, {
     initialValue: this.form.getRawValue(),
@@ -59,10 +50,6 @@ export class Profile {
     this.formValue();
     return Object.keys(this.changes()).length > 0;
   });
-
-  protected readonly emailChanged = computed(
-    () => this.email() !== (this.auth.user()?.email ?? ''),
-  );
 
   constructor() {
     const user = this.auth.user();
@@ -82,24 +69,14 @@ export class Profile {
 
   protected error(field: Field): string | null {
     const control = this.form.controls[field];
-    if (field === 'currentPassword') {
-      return this.submitted() && this.emailChanged() && !control.value
-        ? 'Enter your current password to change your email'
-        : null;
-    }
     if (!shouldShowError(control, this.submitted())) {
       return null;
     }
     if (control.hasError('required')) {
-      return field === 'email'
-        ? 'Enter your email address'
-        : `Enter your ${field === 'firstName' ? 'first' : 'last'} name`;
+      return `Enter your ${field === 'firstName' ? 'first' : 'last'} name`;
     }
     if (control.hasError('maxlength')) {
       return 'This is too long';
-    }
-    if (control.hasError('email')) {
-      return 'Enter a valid email address';
     }
     return 'Use 7 to 15 digits, optionally starting with +';
   }
@@ -113,11 +90,6 @@ export class Profile {
       focusFirstInvalid(this.form, this.host);
       return;
     }
-    if (this.emailChanged() && !this.form.controls.currentPassword.value) {
-      this.host.querySelector<HTMLElement>('#currentPassword')?.focus();
-      return;
-    }
-
     const request = this.changes();
     if (Object.keys(request).length === 0) {
       return;
@@ -156,10 +128,6 @@ export class Profile {
     if (value.phoneNumber && value.phoneNumber !== (user.phoneNumber ?? '')) {
       request.phoneNumber = value.phoneNumber;
     }
-    if (this.emailChanged()) {
-      request.email = value.email.trim();
-      request.currentPassword = value.currentPassword;
-    }
     return request;
   }
 
@@ -168,9 +136,7 @@ export class Profile {
       {
         firstName: user.firstName,
         lastName: user.lastName,
-        email: user.email,
         phoneNumber: user.phoneNumber ?? '',
-        currentPassword: '',
       },
       { emitEvent: true },
     );
@@ -188,13 +154,8 @@ export class Profile {
       );
       return;
     }
-    if (status === 400) {
-      this.reject(['currentPassword'], problem.detail ?? 'Current password is incorrect');
-      return;
-    }
     if (status === 409) {
-      const field: Field = problem.title?.toLowerCase().includes('phone') ? 'phoneNumber' : 'email';
-      this.reject([field], problem.detail ?? 'This is already in use');
+      this.reject(['phoneNumber'], problem.detail ?? 'This is already in use');
       return;
     }
     this.formError.set(genericErrorMessage(error));

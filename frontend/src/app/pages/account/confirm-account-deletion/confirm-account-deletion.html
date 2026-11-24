@@ -1,0 +1,40 @@
+@if (linkInvalid()) {
+  <div class="grid size-12 place-items-center rounded-full bg-red-50 text-red-600">
+    <ng-icon name="heroLink" size="24" aria-hidden="true" />
+  </div>
+  <h1 class="mt-5 font-display text-3xl font-bold tracking-tight">
+    This link is invalid or has expired
+  </h1>
+  <p class="mt-2 text-zinc-600" role="alert">
+    Confirmation links work once and expire after 30 minutes. Your account has not been deleted. To
+    try again, log in and go to Account → Security.
+  </p>
+  <a routerLink="/account/security" class="btn-primary mt-6">Go to account security</a>
+} @else {
+  <div class="grid size-12 place-items-center rounded-full bg-red-50 text-red-600">
+    <ng-icon name="heroExclamationTriangle" size="24" aria-hidden="true" />
+  </div>
+  <h1 class="mt-5 font-display text-3xl font-bold tracking-tight">Delete your account?</h1>
+  <p class="mt-2 text-zinc-600">
+    Your name, email and phone number will be erased and you'll be logged out on every device. This
+    can't be undone.
+  </p>
+
+  <div class="mt-6 space-y-3">
+    <app-form-alert [message]="formError()" />
+    <button
+      type="button"
+      class="btn-danger h-12 w-full gap-2"
+      [disabled]="submitting()"
+      (click)="confirm()"
+    >
+      @if (submitting()) {
+        <app-spinner />
+        Deleting account…
+      } @else {
+        Yes, delete my account
+      }
+    </button>
+    <a routerLink="/" class="btn-secondary h-12 w-full">Keep my account</a>
+  </div>
+}

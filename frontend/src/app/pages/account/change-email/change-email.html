@@ -1,0 +1,89 @@
+<app-settings-section
+  heading="Email"
+  description="The address you log in with and where we send your account emails."
+  headingId="change-email-heading"
+>
+  <div class="settings-card">
+    @if (sent(); as link) {
+      <div class="flex gap-4 p-6">
+        <div
+          class="grid size-10 shrink-0 place-items-center rounded-full bg-brand-100 text-brand-700"
+        >
+          <ng-icon name="heroEnvelope" size="20" aria-hidden="true" />
+        </div>
+        <div role="status">
+          <p class="font-semibold text-zinc-900">Check your email</p>
+          <p class="mt-1 text-sm text-zinc-600">
+            We've sent a link to
+            <span class="font-semibold text-zinc-900">{{ link.currentEmail }}</span
+            >. Your email changes to
+            <span class="font-semibold text-zinc-900">{{ link.newEmail }}</span> once you click it.
+            The link expires in 30 minutes.
+          </p>
+        </div>
+      </div>
+      <div class="flex justify-end border-t border-zinc-100 px-6 py-4">
+        <button type="button" class="btn-secondary" (click)="close()">Done</button>
+      </div>
+    } @else if (expanded()) {
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+        <div class="space-y-1 p-6">
+          <p class="mb-4 text-sm text-zinc-600">
+            Current email: <span class="font-semibold text-zinc-900">{{ currentEmail() }}</span>
+          </p>
+          <div>
+            <label for="newEmail" class="form-label">New email</label>
+            <input
+              id="newEmail"
+              type="email"
+              formControlName="newEmail"
+              autocomplete="email"
+              autocapitalize="none"
+              spellcheck="false"
+              class="form-input"
+              aria-describedby="newEmail-message"
+              [attr.aria-invalid]="error() || rejected() ? true : null"
+            />
+            <app-field-message
+              fieldId="newEmail"
+              [error]="error()"
+              hint="We'll email a confirmation link to your current address"
+            />
+          </div>
+          <app-form-alert class="pt-2" [message]="formError()" />
+        </div>
+
+        <div class="flex items-center justify-end gap-3 border-t border-zinc-100 px-6 py-4">
+          <button type="button" class="btn-secondary" [disabled]="submitting()" (click)="close()">
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="btn-primary h-10 w-auto gap-2 px-4"
+            [disabled]="submitting()"
+          >
+            @if (submitting()) {
+              <app-spinner />
+              Sending link…
+            } @else {
+              Send confirmation link
+            }
+          </button>
+        </div>
+      </form>
+    } @else {
+      <div class="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+        <p class="text-sm font-semibold text-zinc-900">{{ currentEmail() }}</p>
+        <button
+          id="change-email-toggle"
+          type="button"
+          class="btn-secondary shrink-0"
+          aria-expanded="false"
+          (click)="expand()"
+        >
+          Change email
+        </button>
+      </div>
+    }
+  </div>
+</app-settings-section>

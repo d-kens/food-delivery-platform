@@ -73,6 +73,22 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/auth/reset-password/reset-password').then((m) => m.ResetPassword),
       },
+      {
+        path: 'account/delete/confirm',
+        title: 'Delete account | Keroma',
+        loadComponent: () =>
+          import('./pages/account/confirm-account-deletion/confirm-account-deletion').then(
+            (m) => m.ConfirmAccountDeletion,
+          ),
+      },
+      {
+        path: 'account/email/confirm',
+        title: 'Confirm email change | Keroma',
+        loadComponent: () =>
+          import('./pages/account/confirm-email-change/confirm-email-change').then(
+            (m) => m.ConfirmEmailChange,
+          ),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

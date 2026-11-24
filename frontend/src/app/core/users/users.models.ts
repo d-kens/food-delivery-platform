@@ -11,9 +11,7 @@ export interface Page<T> {
 export interface UpdateProfileRequest {
   firstName?: string;
   lastName?: string;
-  email?: string;
   phoneNumber?: string;
-  currentPassword?: string;
 }
 
 export interface UserQuery {
