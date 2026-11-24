@@ -7,7 +7,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum NotificationType {
     UPDATED_PASSWORD("UPDATED_PASSWORD"),
-    RESET_PASSWORD("RESET_PASSWORD");
+    RESET_PASSWORD("RESET_PASSWORD"),
+    CONFIRM_ACCOUNT_DELETION("CONFIRM_ACCOUNT_DELETION"),
+    CONFIRM_EMAIL_CHANGE("CONFIRM_EMAIL_CHANGE");
 
     private final String workflowId;
 }

@@ -55,7 +55,9 @@ Topic `notifications`, key: recipient ID.
 | Type | Sent when |
 |---|---|
 | `UPDATED_PASSWORD` | A user changes or resets their password |
-| `PASSWORD_RESET` | A user asks to reset a forgotten password; `payload` has `resetUrl` and `expiresInMinutes` |
+| `RESET_PASSWORD` | A user asks to reset a forgotten password; `payload` has `resetUrl` and `expiresInMinutes` |
+| `CONFIRM_ACCOUNT_DELETION` | A user asks to delete their account; `payload` has `confirmUrl` and `expiresInMinutes` |
+| `CONFIRM_EMAIL_CHANGE` | A user asks to change their email; sent to the current address, `payload` has `newEmail`, `confirmUrl` and `expiresInMinutes` |
 
 ## Configuration
 
