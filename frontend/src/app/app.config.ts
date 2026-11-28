@@ -11,6 +11,7 @@ import { provideNgIconsConfig } from '@ng-icons/core';
 import { routes } from './app.routes';
 import { authRefreshInterceptor } from './core/auth/auth-refresh.interceptor';
 import { AuthService } from './core/auth/auth.service';
+import { GoogleReturn } from './core/auth/google-return';
 import { credentialsInterceptor } from './core/http/credentials.interceptor';
 
 const unsplashLoader = ({ src, width }: ImageLoaderConfig) =>
@@ -29,7 +30,10 @@ export const appConfig: ApplicationConfig = {
       withInterceptors([credentialsInterceptor, authRefreshInterceptor]),
     ),
     provideAppInitializer(() => {
-      inject(AuthService).restoreSession().subscribe();
+      const googleReturn = inject(GoogleReturn);
+      inject(AuthService)
+        .restoreSession()
+        .subscribe((user) => googleReturn.resume(user));
     }),
     { provide: IMAGE_LOADER, useValue: unsplashLoader },
     provideNgIconsConfig({ strokeWidth: 1.75 }),

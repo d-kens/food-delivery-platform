@@ -1,10 +1,14 @@
-import { Component, input } from '@angular/core';
+import { Component, inject, input } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { environment } from '../../../environments/environment';
+import { GoogleReturn } from '../../core/auth/google-return';
 
 @Component({
   selector: 'app-google-button',
   template: `
-    <button
-      type="button"
+    <a
+      [href]="url"
+      (click)="rememberNext()"
       class="inline-flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-800 shadow-xs transition-colors hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
     >
       <svg viewBox="0 0 48 48" class="size-5" aria-hidden="true">
@@ -26,9 +30,17 @@ import { Component, input } from '@angular/core';
         />
       </svg>
       {{ label() }}
-    </button>
+    </a>
   `,
 })
 export class GoogleButton {
+  private readonly route = inject(ActivatedRoute);
+  private readonly googleReturn = inject(GoogleReturn);
+
   readonly label = input('Continue with Google');
+  protected readonly url = `${environment.apiUrl}/user-service/oauth2/authorization/google`;
+
+  protected rememberNext(): void {
+    this.googleReturn.remember(this.route.snapshot.queryParamMap.get('next'));
+  }
 }

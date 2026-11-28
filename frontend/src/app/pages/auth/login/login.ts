@@ -26,6 +26,8 @@ const NOTICES: Record<string, string> = {
   'password-reset': 'Password reset. Log in with your new password.',
 };
 
+const GOOGLE_FAILED = "Couldn't log in with Google. Try again, or log in with your email.";
+
 const REQUIRED: Record<Field, string> = {
   email: 'Enter your email address',
   password: 'Enter your password',
@@ -78,6 +80,10 @@ export class Login {
     const email = state?.['email'];
     if (typeof email === 'string') {
       this.form.controls.email.setValue(email);
+    }
+
+    if (this.route.snapshot.queryParamMap.get('error') === 'google') {
+      this.formError.set(GOOGLE_FAILED);
     }
 
     this.form.valueChanges

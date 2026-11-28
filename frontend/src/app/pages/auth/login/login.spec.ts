@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { GoogleReturn } from '../../../core/auth/google-return';
 import { Login } from './login';
 
 describe('Login', () => {
@@ -160,6 +161,49 @@ describe('Login', () => {
       await fixture.whenStable();
 
       expect(alert()?.textContent).toContain("Can't reach Keroma right now");
+    });
+  });
+
+  it('should link to the Google sign-in endpoint', () => {
+    const link = compiled.querySelector<HTMLAnchorElement>('app-google-button a')!;
+
+    expect(link.getAttribute('href')).toBe('/api/user-service/oauth2/authorization/google');
+  });
+
+  it('should remember ?next when leaving for Google', () => {
+    const route = TestBed.inject(ActivatedRoute);
+    Object.defineProperty(route, 'snapshot', {
+      value: { queryParamMap: convertToParamMap({ next: '/account' }) },
+    });
+    const remember = vi.spyOn(TestBed.inject(GoogleReturn), 'remember');
+    const link = compiled.querySelector<HTMLAnchorElement>('app-google-button a')!;
+    link.addEventListener('click', (event) => event.preventDefault());
+
+    link.click();
+
+    expect(remember).toHaveBeenCalledWith('/account');
+  });
+
+  describe('arriving after a failed Google login', () => {
+    it('should explain that Google login failed', async () => {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          provideRouter([{ path: 'login', component: Login }]),
+          provideHttpClient(),
+          provideHttpClientTesting(),
+        ],
+      });
+      const harness = await RouterTestingHarness.create('/login?error=google');
+      await harness.fixture.whenStable();
+
+      expect(harness.routeNativeElement!.querySelector('[role="alert"]')?.textContent).toContain(
+        "Couldn't log in with Google",
+      );
+    });
+
+    it('should show no error on a normal visit', () => {
+      expect(alert()).toBeNull();
     });
   });
 
