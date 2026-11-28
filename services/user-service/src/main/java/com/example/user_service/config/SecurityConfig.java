@@ -6,7 +6,9 @@ import com.example.user_service.security.GoogleLoginSuccessHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -108,7 +110,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/users/{id}/roles").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
-                .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> {}));
+                .oauth2ResourceServer(oauth -> oauth
+                        .authenticationEntryPoint((request, response, exception) -> {
+                            response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
+                            response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                        })
+                        .jwt(jwt -> {}));
 
         return http.build();
     }

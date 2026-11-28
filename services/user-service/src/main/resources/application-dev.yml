@@ -1,5 +1,6 @@
 server:
   port: 9001
+  address: 127.0.0.1
 
 spring:
   security:
@@ -8,6 +9,10 @@ spring:
         registration:
           google:
             redirect-uri: http://localhost:8080/api/user-service/login/oauth2/code/google
+
+logging:
+  level:
+    org.apache.coyote.http11.Http11NioProtocol: info
 
 security:
   jwt:
